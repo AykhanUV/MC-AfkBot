@@ -45,6 +45,8 @@
     "auto-reconnect": true,
     "auto-recconect-delay": 5000,
     "movementEnabled": true,
-    "movementInterval": 500
+    "movementInterval": 500,
+    "headMovementEnabled": true,
+    "headMovementInterval": 5000
   }
 }
