@@ -48,5 +48,11 @@
     "movementInterval": 500,
     "headMovementEnabled": true,
     "headMovementInterval": 5000
+  },
+
+  "mining": {
+    "enabled": true,
+    "miningInterval": 15000,
+    "blockExceptions": ["stone", "cobblestone", "diorite", "andesite", "granite"]
   }
 }

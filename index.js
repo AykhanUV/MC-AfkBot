@@ -1,6 +1,5 @@
 const mineflayer = require('mineflayer');
-const Movements = require('mineflayer-pathfinder').Movements;
-const pathfinder = require('mineflayer-pathfinder').pathfinder;
+const { pathfinder, Movements, goals: { GoalNear } } = require('mineflayer-pathfinder');
 const { GoalBlock } = require('mineflayer-pathfinder').goals;
 
 const config = require('./settings.json');
@@ -31,7 +30,9 @@ function createBot() {
   const defaultMove = new Movements(bot, mcData);
   bot.settings.colorsEnabled = false;
 
-  let pendingPromise = Promise.resolve();
+  let isMining = false;
+  let movementIntervalId = null;
+  let lastMinedBlock = null;
 
   function sendRegister(password) {
     return new Promise((resolve, reject) => {
@@ -86,7 +87,7 @@ function createBot() {
 
       const password = config.utils['auto-auth'].password;
 
-      pendingPromise = pendingPromise
+      Promise.resolve()
         .then(() => sendRegister(password))
         .then(() => sendLogin(password))
         .catch(error => console.error('[ERROR]', error));
@@ -130,9 +131,7 @@ function createBot() {
 
     if (config.utils.movementEnabled) {
       console.log('[INFO] Movement enabled. Bot will move periodically.');
-      setInterval(() => {
-        moveBot(bot);
-      }, config.utils.movementInterval || 10000);
+      startRandomMovement(bot);
     }
 
     if (config.utils.headMovementEnabled) {
@@ -141,7 +140,31 @@ function createBot() {
         moveHead(bot);
       }, config.utils.headMovementInterval || 5000);
     }
+
+    if (config.mining.enabled) {
+      console.log('[INFO] Mining enabled as part of anti-AFK routine.');
+      setInterval(() => {
+        if (!isMining) {
+          mineRandomBlockNearby(bot);
+        }
+      }, config.mining.miningInterval);
+    }
   });
+
+  function startRandomMovement(bot) {
+    movementIntervalId = setInterval(() => {
+      if (!isMining) {
+        moveBot(bot);
+      }
+    }, config.utils.movementInterval);
+  }
+
+  function stopRandomMovement() {
+    if (movementIntervalId) {
+      clearInterval(movementIntervalId);
+      movementIntervalId = null;
+    }
+  }
 
   function moveBot(bot) {
     const directions = ['forward', 'back', 'left', 'right'];
@@ -159,10 +182,64 @@ function createBot() {
     bot.look(yaw, pitch, true);
   }
 
+  async function mineRandomBlockNearby(bot) {
+    isMining = true;
+    stopRandomMovement();
+
+    const radius = 4;
+    const yRange = 2;
+
+    let targetBlock = null;
+    let attempts = 0;
+
+    while (!targetBlock && attempts < 10) {
+      const randomX = Math.floor(Math.random() * (radius * 2 + 1)) - radius;
+      const randomY = Math.floor(Math.random() * (yRange * 2 + 1)) - yRange;
+      const randomZ = Math.floor(Math.random() * (radius * 2 + 1)) - radius;
+
+      const targetPos = bot.entity.position.offset(randomX, randomY, randomZ);
+      const block = bot.blockAt(targetPos);
+
+      if (block && block.type !== 0 && !config.mining.blockExceptions.includes(block.name)) {
+        if (!lastMinedBlock || lastMinedBlock.position.distanceTo(block.position) > 1) {
+          targetBlock = block;
+        }
+      }
+
+      attempts++;
+    }
+
+    if (targetBlock) {
+      console.log(`[Mining] Attempting to mine block at ${targetBlock.position} (type: ${targetBlock.name})`);
+      try {
+        const digTime = targetBlock.digTime(bot.heldItem);
+        await new Promise((resolve) => setTimeout(resolve, digTime));
+
+        await bot.dig(targetBlock);
+        console.log(`[Mining] Successfully mined block at ${targetBlock.position}`);
+
+        bot.pathfinder.setMovements(defaultMove);
+        bot.pathfinder.setGoal(new GoalNear(targetBlock.position.x, targetBlock.position.y, targetBlock.position.z, 1));
+        lastMinedBlock = targetBlock;
+
+      } catch (err) {
+        console.log(`[Mining] Error while mining: ${err}`);
+        isMining = false;
+        startRandomMovement(bot);
+      }
+    } else {
+      console.log('[Mining] No suitable block found to mine after several attempts.');
+      isMining = false;
+      startRandomMovement(bot);
+    }
+  }
+
   bot.on('goal_reached', () => {
     console.log(
       `\x1b[32m[AfkBot] Bot arrived at the target location. ${bot.entity.position}\x1b[0m`
     );
+    isMining = false;
+    startRandomMovement(bot);
   });
 
   bot.on('death', () => {
@@ -170,6 +247,8 @@ function createBot() {
       `\x1b[33m[AfkBot] Bot has died and was respawned at ${bot.entity.position}`,
       '\x1b[0m'
     );
+    isMining = false;
+    startRandomMovement(bot);
   });
 
   if (config.utils['auto-reconnect']) {
