@@ -1,5 +1,5 @@
 const mineflayer = require('mineflayer');
-const { pathfinder, Movements, goals: { GoalNear } } = require('mineflayer-pathfinder');
+const { pathfinder, Movements, goals: { GoalNear, GoalGetToBlock, GoalXZ } } = require('mineflayer-pathfinder');
 const { GoalBlock } = require('mineflayer-pathfinder').goals;
 
 const config = require('./settings.json');
@@ -28,6 +28,10 @@ function createBot() {
   bot.loadPlugin(pathfinder);
   const mcData = require('minecraft-data')(bot.version);
   const defaultMove = new Movements(bot, mcData);
+
+  if (!bot.settings) {
+    bot.settings = {};
+  }
   bot.settings.colorsEnabled = false;
 
   let isMining = false;
@@ -186,13 +190,14 @@ function createBot() {
     isMining = true;
     stopRandomMovement();
 
-    const radius = 4;
+    const radius = config.mining.searchRadius;
     const yRange = 2;
+    const maxAttempts = config.mining.maxAttempts;
 
     let targetBlock = null;
     let attempts = 0;
 
-    while (!targetBlock && attempts < 10) {
+    while (!targetBlock && attempts < maxAttempts) {
       const randomX = Math.floor(Math.random() * (radius * 2 + 1)) - radius;
       const randomY = Math.floor(Math.random() * (yRange * 2 + 1)) - yRange;
       const randomZ = Math.floor(Math.random() * (radius * 2 + 1)) - radius;
@@ -223,12 +228,15 @@ function createBot() {
         lastMinedBlock = targetBlock;
 
       } catch (err) {
-        console.log(`[Mining] Error while mining: ${err}`);
+        console.warn(`[Mining] Error while mining: ${err}`);
+        if (err.message.includes('timeout')) {
+          console.warn('[Mining] Timeout occurred. The bot may be lagging or the server may be slow.');
+        }
         isMining = false;
         startRandomMovement(bot);
       }
     } else {
-      console.log('[Mining] No suitable block found to mine after several attempts.');
+      console.warn('[Mining] No suitable block found to mine after several attempts.');
       isMining = false;
       startRandomMovement(bot);
     }
