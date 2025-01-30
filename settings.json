@@ -53,8 +53,6 @@
   "mining": {
     "enabled": true,
     "miningInterval": 15000,
-    "blockExceptions": ["stone", "granite", "diorite", "andesite", "sandstone", "air", "water"],
-    "searchRadius": 6,
-    "maxAttempts": 20
+    "blockExceptions": ["stone", "cobblestone", "diorite", "andesite", "granite"]
   }
 }
