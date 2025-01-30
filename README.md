@@ -2,6 +2,9 @@
 - Functional minecraft AFK bot for servers
 - Anti-AFK, Auto-Auth, Microsoft/Offline accounts support.
 
+# Note
+- This project is not perfect and does random actions, put bot away from house or builds
+
 ## Installation
 
  1. Clone the repository
