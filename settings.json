@@ -7,13 +7,7 @@
   "server": {
     "ip": "Your server ip",
     "port": 22556,
-    "version": "1.12.1"
-  },
-  "position": {
-    "enabled": false,
-    "x": 0,
-    "y": 0,
-    "z": 0
+    "version": "1.17.1"
   },
   "utils": {
     "auto-auth": {
@@ -25,50 +19,67 @@
       "movement": {
         "enabled": true,
         "radius": 5,
-        "interval": 10000
+        "interval": 6000
       },
       "interaction": {
         "enabled": true,
-        "interval": 20000,
-        "nearbyBlockTypes": ["furnace", "crafting_table", "chest"]
+        "nearbyBlockTypes": [
+          "furnace",
+          "chest",
+          "crafting_table",
+          "brewing_stand"
+        ],
+        "interval": 120000
       },
       "jumping": {
         "enabled": true,
-        "interval": 7000,
-        "probability": 0.2
+        "probability": 0.2,
+        "interval": 30000
       },
       "rotation": {
         "enabled": true,
-        "interval": 5000
+        "interval": 45000
       },
       "fishing": {
-        "enabled": false,
-        "interval": 15000
+        "enabled": true,
+        "interval": 300000
       }
     },
     "chat-messages": {
       "enabled": true,
       "repeat": true,
-      "repeat-delay": 120,
+      "repeat-delay": 20,
       "messages": [
-        "Keep alive",
-        "Test",
-        "M"
+        "I am an AFK bot!",
+        "Staying active..."
       ]
     },
-    "chat-log": true,
     "auto-reconnect": true,
-    "auto-recconect-delay": 5000
+    "auto-reconnect-delay": 10
+  },
+  "position": {
+    "enabled": false,
+    "x": 100,
+    "y": 64,
+    "z": 100
   },
   "mining": {
     "enabled": true,
-    "miningInterval": 15000,
-    "blockExceptions": [
-      "stone",
+    "blockTypes": [
+      "dirt",
       "cobblestone",
-      "diorite",
-      "andesite",
-      "granite"
-    ]
+      "coal_ore",
+      "grass_block",
+      "sand",
+      "oak_log",
+      "spruce_log",
+      "birch_log",
+      "jungle_log"
+    ],
+    "interval": 10000,
+    "maxDistance": 5
+  },
+  "webserver": {
+    "port": 8000
   }
 }

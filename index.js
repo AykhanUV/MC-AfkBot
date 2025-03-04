@@ -128,7 +128,6 @@ function createBot() {
         bot.pathfinder.setMovements(defaultMove);
         bot.pathfinder.goto(new GoalGetToBlock(targetX, bot.entity.position.y, targetZ))
           .catch(() => {
-            // Removed the console.log here
           });
     }
 
@@ -195,28 +194,26 @@ function createBot() {
 
         setInterval(() => {
           const messageToSend = messages[i];
-          console.log(`[Chat] Attempting to send message: ${messageToSend}`); // Added logging
+          console.log(`[Chat] Attempting to send message: ${messageToSend}`);
           bot.chat(messageToSend);
-          console.log(`[Chat] Sent message: ${messageToSend}`); // Added logging
+          console.log(`[Chat] Sent message: ${messageToSend}`);
           i = (i + 1) % messages.length;
         }, delay * 1000);
       } else {
         messages.forEach((msg) => {
-          console.log(`[Chat] Attempting to send message: ${msg}`); // Added logging
+          console.log(`[Chat] Attempting to send message: ${msg}`);
           bot.chat(msg);
-          console.log(`[Chat] Sent message: ${msg}`); // Added logging
+          console.log(`[Chat] Sent message: ${msg}`);
         });
       }
     }
 
-    // Log all chat messages and commands
     bot.on('chat', (username, message) => {
       console.log(`[ChatLog] <${username}> ${message}`);
 
-      // Check if the message is a command
       if (message.startsWith('!')) {
-        const command = message.substring(1).split(' ')[0]; // Extract command name
-        const args = message.substring(1).split(' ').slice(1); // Extract arguments
+        const command = message.substring(1).split(' ')[0];
+        const args = message.substring(1).split(' ').slice(1);
 
         console.log(`[Command] Received command: ${command} with args: ${args}`);
 
@@ -238,7 +235,6 @@ function createBot() {
       }
     });
 
-    // Helper function to format uptime
     function formatUptime(seconds) {
       const days = Math.floor(seconds / (3600 * 24));
       seconds -= days * 3600 * 24;
@@ -345,12 +341,12 @@ function createBot() {
       )
     );
 
-    // General error handling
     bot.on('error', (err) => {
       console.log(`\x1b[31m[ERROR] ${err.message}`, '\x1b[0m');
     });
 
     bot.on('entityUpdate', (entity) => {
+
     });
   });
 }
