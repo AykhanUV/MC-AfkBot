@@ -11,7 +11,7 @@ function createBot(config) {
   const bot = mineflayer.createBot({
     username: config['bot-account']['username'],
     password: config['bot-account']['password'],
-    auth: 'offline',
+    auth: config['bot-account']['type'],
     host: config.server.ip,
     port: config.server.port,
     version: config.server.version,
@@ -40,6 +40,14 @@ function createBot(config) {
     bot.on('error', (err) => {
       console.error('[Bot] Error:', err);
     });
+  });
+
+  bot.on('death', () => {
+    console.log(`\x1b[33m[Bot] Bot died and respawned.\x1b[0m`);
+    if (bot.isMining) {
+      console.log('[Bot] Resetting mining state due to death.');
+      bot.isMining = false;
+    }
   });
 
     bot.on('end', () => {

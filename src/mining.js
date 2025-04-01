@@ -3,15 +3,18 @@ const { Movements, goals: { GoalNear } } = require('mineflayer-pathfinder');
 function setupMining(bot, config) {
     if (!config.mining.enabled) return;
 
+    bot.isMining = false;
     const mcData = require('minecraft-data')(bot.version);
     const defaultMove = new Movements(bot, mcData);
     bot.pathfinder.setMovements(defaultMove);
 
     setInterval(() => {
-        mineRandomBlockNearby(bot, config);
-    }, config.mining.miningInterval);
+        mineRandomBlockNearby(bot, config, defaultMove);
+    }, config.mining.interval);
 
-    async function mineRandomBlockNearby(bot, config) {
+    async function mineRandomBlockNearby(bot, config, defaultMove) {
+        if (bot.isMining) return;
+        bot.isMining = true;
 
         const radius = 4;
         const yRange = 2;
@@ -47,13 +50,16 @@ function setupMining(bot, config) {
 
             } catch (err) {
                 console.log(`[Mining] Error: ${err}`);
+                bot.isMining = false;
             }
         } else {
             console.log('[Mining] No suitable block found.');
+            bot.isMining = false;
         }
     }
      bot.on('goal_reached', () => {
-        console.log(`[Mining] Reached goal`);
+        console.log(`[Mining] Reached goal after mining.`);
+        bot.isMining = false;
     });
 }
 

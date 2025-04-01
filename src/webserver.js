@@ -1,7 +1,6 @@
 const express = require('express');
 
 function setupWebserver(bot, config) {
-    if (!config.webserver.enabled) return;
     const app = express();
     const port = config.webserver.port || 3000;
 
