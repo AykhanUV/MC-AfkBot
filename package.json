@@ -10,9 +10,9 @@
   "author": "Lamgerr",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.1",
-    "mineflayer": "^4.3.0",
-    "mineflayer-pathfinder": "^2.1.1"
+    "express": "^5.1.0",
+    "mineflayer": "^4.27.0",
+    "mineflayer-pathfinder": "^2.4.5"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
