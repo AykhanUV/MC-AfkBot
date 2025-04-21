@@ -1,5 +1,8 @@
 const { Movements, goals: { GoalNear, GoalGetToBlock, GoalBlock } } = require('mineflayer-pathfinder');
 
+// Store interval IDs globally within the module scope, associated with the bot instance
+const botTimers = new Map(); // Use a Map to store timers per bot instance if needed, though unlikely here
+
 function setupAntiAfk(bot, config) {
     const mcData = require('minecraft-data')(bot.version);
     const defaultMove = new Movements(bot, mcData);
@@ -12,12 +15,20 @@ function setupAntiAfk(bot, config) {
     console.log('[Anti-AFK] Module enabled.');
 
     const antiAFK = config.utils['anti-afk'];
+    const currentTimers = { // Object to hold timers for *this* bot instance
+        movement: null,
+        interaction: null,
+        jumping: null,
+        rotation: null,
+        fishing: null
+    };
+    botTimers.set(bot.username, currentTimers); // Store timers associated with this bot
 
     // --- Movement ---
     if (antiAFK.movement.enabled) {
         console.log(`[Anti-AFK] Movement enabled. Interval: ${antiAFK.movement.interval / 1000}s, Radius: ${antiAFK.movement.radius}`);
-        setInterval(() => {
-            // Initial check before calling the function
+        currentTimers.movement = setInterval(() => {
+            if (!bot || !bot.entity) return; // Ensure bot exists before acting
             if (!bot.isMining) {
                 moveToRandomNearbyPosition(bot, antiAFK.movement.radius, defaultMove);
             }
@@ -27,8 +38,8 @@ function setupAntiAfk(bot, config) {
     // --- Interaction ---
     if (antiAFK.interaction.enabled) {
         console.log(`[Anti-AFK] Interaction enabled. Interval: ${antiAFK.interaction.interval / 1000}s`);
-        setInterval(() => {
-            // Check before interacting
+        currentTimers.interaction = setInterval(() => {
+            if (!bot || !bot.entity) return;
             if (!bot.isMining) {
                 interactWithNearbyBlock(bot, antiAFK.interaction.nearbyBlockTypes);
             }
@@ -38,13 +49,17 @@ function setupAntiAfk(bot, config) {
     // --- Jumping ---
     if (antiAFK.jumping.enabled) {
         console.log(`[Anti-AFK] Jumping enabled. Interval: ${antiAFK.jumping.interval / 1000}s, Probability: ${antiAFK.jumping.probability}`);
-        setInterval(() => {
-            // Check before jumping
+        currentTimers.jumping = setInterval(() => {
+            if (!bot || !bot.entity) return;
             if (!bot.isMining && Math.random() < antiAFK.jumping.probability) {
                 console.log('[Anti-AFK] Performing jump.');
                 bot.setControlState('jump', true);
-                // Release jump after a short delay
-                setTimeout(() => bot.setControlState('jump', false), 500);
+                setTimeout(() => {
+                    // Check bot still exists before setting control state
+                    if (bot && bot.setControlState) {
+                         bot.setControlState('jump', false);
+                    }
+                }, 500);
             }
         }, antiAFK.jumping.interval);
     }
@@ -52,8 +67,8 @@ function setupAntiAfk(bot, config) {
     // --- Rotation ---
     if (antiAFK.rotation.enabled) {
         console.log(`[Anti-AFK] Rotation enabled. Interval: ${antiAFK.rotation.interval / 1000}s`);
-        setInterval(() => {
-            // Check before rotating
+        currentTimers.rotation = setInterval(() => {
+            if (!bot || !bot.entity) return;
             if (!bot.isMining) {
                 rotateRandomly(bot);
             }
@@ -63,8 +78,8 @@ function setupAntiAfk(bot, config) {
     // --- Fishing ---
     if (antiAFK.fishing.enabled) {
         console.log(`[Anti-AFK] Fishing enabled. Interval: ${antiAFK.fishing.interval / 1000}s`);
-        setInterval(() => {
-            // Check before fishing
+        currentTimers.fishing = setInterval(() => {
+            if (!bot || !bot.entity) return;
             if (!bot.isMining) {
                 fish(bot, mcData);
             }
@@ -74,9 +89,8 @@ function setupAntiAfk(bot, config) {
     // --- Initial Position ---
     const pos = config.position;
     if (pos.enabled) {
-        // Move to initial position once after spawning
         bot.once('spawn', () => {
-            // Check if mining is active *before* trying to move to initial position
+            if (!bot || !bot.entity) return;
             if (!bot.isMining) {
                 console.log(`[Anti-AFK] Moving to initial position: (${pos.x}, ${pos.y}, ${pos.z})`);
                 bot.pathfinder.setGoal(new GoalBlock(pos.x, pos.y, pos.z));
@@ -85,32 +99,41 @@ function setupAntiAfk(bot, config) {
             }
         });
     }
+
+    // --- Cleanup on Bot End ---
+    const cleanupListener = () => {
+        console.log(`[Anti-AFK] Cleaning up timers for bot ${bot.username || 'instance'}.`);
+        const timersToClear = botTimers.get(bot.username);
+        if (timersToClear) {
+            for (const key in timersToClear) {
+                if (timersToClear[key]) {
+                    clearInterval(timersToClear[key]);
+                    console.log(`[Anti-AFK] Cleared ${key} timer.`);
+                }
+            }
+            botTimers.delete(bot.username); // Remove entry for this bot
+        }
+        // No need to remove this listener itself as the bot instance is gone
+    };
+    bot.once('end', cleanupListener); // Use once to ensure it only runs once per bot instance end
 }
 
-/**
- * Moves the bot to a random nearby position.
- * Includes an additional check for bot.isMining before setting the goal.
- */
+// --- Action Functions ---
+// (Keep the internal !bot.isMining checks as a secondary safeguard)
+
 function moveToRandomNearbyPosition(bot, radius, defaultMove) {
-    // Double-check if the bot started mining since the interval check
-    if (bot.isMining) {
-        console.log('[Anti-AFK] Skipping random move because bot started mining.');
-        return;
-    }
+    if (!bot || !bot.entity || bot.isMining) return; // Added check for bot existence
 
     const randomX = Math.floor(Math.random() * (radius * 2 + 1)) - radius;
     const randomZ = Math.floor(Math.random() * (radius * 2 + 1)) - radius;
-
     const targetX = bot.entity.position.x + randomX;
     const targetZ = bot.entity.position.z + randomZ;
-    const targetY = bot.entity.position.y; // Keep Y level the same for simplicity
+    const targetY = bot.entity.position.y;
 
     console.log(`[Anti-AFK] Attempting random move to: ${targetX.toFixed(1)}, ${targetY.toFixed(1)}, ${targetZ.toFixed(1)}`);
-
     bot.pathfinder.setMovements(defaultMove);
     bot.pathfinder.goto(new GoalGetToBlock(targetX, targetY, targetZ))
         .catch(err => {
-            // Ignore GoalChanged errors as they are expected if mining starts
             if (err.name !== 'GoalChanged') {
                 console.error('[Anti-AFK] Pathfinding error during random move:', err);
             } else {
@@ -119,16 +142,13 @@ function moveToRandomNearbyPosition(bot, radius, defaultMove) {
         });
 }
 
-/**
- * Interacts with a nearby block of specified types.
- */
 function interactWithNearbyBlock(bot, blockTypes) {
-    // No check needed here as interaction is less likely to conflict critically
+     if (!bot || !bot.entity || bot.isMining) return;
+
     const nearbyBlock = bot.findBlock({
         matching: (block) => blockTypes.includes(block.name),
         maxDistance: 3,
     });
-
     if (nearbyBlock) {
         console.log(`[Anti-AFK] Interacting with nearby block: ${nearbyBlock.name}`);
         bot.activateBlock(nearbyBlock)
@@ -136,16 +156,9 @@ function interactWithNearbyBlock(bot, blockTypes) {
     }
 }
 
-/**
- * Performs a fishing action.
- * Includes an additional check for bot.isMining before starting.
- */
 async function fish(bot, mcData) {
-    // Double-check if the bot started mining
-    if (bot.isMining) {
-         console.log('[Anti-AFK] Skipping fishing because bot started mining.');
-        return;
-    }
+     if (!bot || !bot.entity || bot.isMining) return;
+
     console.log('[Anti-AFK] Attempting to fish...');
     try {
         const fishingRod = mcData.itemsByName.fishing_rod;
@@ -154,27 +167,20 @@ async function fish(bot, mcData) {
             return;
         }
         await bot.equip(fishingRod.id, 'hand');
-        await bot.activateItem();
+        await bot.fish();
         console.log('[Anti-AFK] Fishing action complete.');
     } catch (err) {
         console.error("[Anti-AFK] Fishing error:", err.message);
     }
 }
 
-/**
- * Rotates the bot's view randomly.
- * Includes an additional check for bot.isMining before rotating.
- */
 function rotateRandomly(bot) {
-    // Double-check if the bot started mining
-    if (bot.isMining) {
-        console.log('[Anti-AFK] Skipping random rotation because bot started mining.');
-        return;
-    }
+     if (!bot || !bot.entity || bot.isMining) return;
+
     console.log('[Anti-AFK] Performing random rotation.');
-    const yaw = Math.random() * Math.PI * 2 - Math.PI; // Full horizontal circle
-    const pitch = Math.random() * Math.PI - Math.PI / 2; // Full vertical range
-    bot.look(yaw, pitch, true); // Force head turn
+    const yaw = Math.random() * Math.PI * 2 - Math.PI;
+    const pitch = Math.random() * Math.PI - Math.PI / 2;
+    bot.look(yaw, pitch, true);
 }
 
 module.exports = { setupAntiAfk };

@@ -11,6 +11,7 @@
   "license": "MIT",
   "dependencies": {
     "express": "^5.1.0",
+    "minecraft-server-util": "^5.4.4",
     "mineflayer": "^4.27.0",
     "mineflayer-pathfinder": "^2.4.5"
   },

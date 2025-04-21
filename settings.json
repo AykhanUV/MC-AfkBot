@@ -1,6 +1,6 @@
 {
   "bot-account": {
-    "username": "AfkBot",
+    "username": "AfkBot(Change this)",
     "password": "",
     "type": "mojang"
   },
@@ -55,7 +55,12 @@
       ]
     },
     "auto-reconnect": true,
-    "auto-reconnect-delay": 10
+    "auto-reconnect-delay": 10,
+    "player-activity": {
+      "enabled": true,
+      "checkIntervalSeconds": 30,
+      "leaveWhenPlayerJoins": true
+    }
   },
   "position": {
     "enabled": false,

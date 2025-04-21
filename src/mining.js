@@ -45,6 +45,7 @@ function setupMining(bot, config) {
         // Prevent starting a new mining task if one is already in progress.
         if (bot.isMining) return;
         bot.isMining = true; // Set the flag to indicate mining is active.
+        bot.emit('mining_started'); // Signal that mining has started
         console.log('[Mining] Starting mining cycle...');
 
         try {
@@ -52,6 +53,7 @@ function setupMining(bot, config) {
             if (bot.inventory.emptySlotCount() === 0) { // Corrected check
                 console.log('[Mining] Inventory is full. Skipping mining cycle.');
                 bot.isMining = false;
+                bot.emit('mining_stopped'); // Signal that mining has stopped
                 return;
             }
 
@@ -68,12 +70,14 @@ function setupMining(bot, config) {
             } else {
                 console.log('[Mining] No suitable block found nearby.');
                 bot.isMining = false; // Reset flag if no block was found.
+                bot.emit('mining_stopped'); // Signal that mining has stopped
             }
         } catch (err) {
             // Catch any unexpected errors during the mining cycle.
             console.error(`[Mining] Unexpected error during mining cycle: ${err.message}`);
             console.error(err.stack); // Log stack trace for debugging
             bot.isMining = false; // Ensure the flag is reset on error.
+            bot.emit('mining_stopped'); // Signal that mining has stopped
         }
     }
 
@@ -177,10 +181,12 @@ function setupMining(bot, config) {
                 console.log(`[Mining] Movement to ${targetBlock.position} timed out after ${moveTimeout / 1000}s. Stopping pathfinding.`);
                 bot.pathfinder.stop(); // Stop the pathfinder
                 bot.isMining = false; // Reset mining state manually
+                bot.emit('mining_stopped'); // Signal that mining has stopped
             } else {
                 console.error(`[Mining] Error moving to block location: ${err.message}`);
                 // If movement fails for other reasons, reset the mining flag immediately.
                 bot.isMining = false;
+                 bot.emit('mining_stopped'); // Signal that mining has stopped
             }
         }
     }
@@ -192,6 +198,7 @@ function setupMining(bot, config) {
         if (bot.isMining) {
             console.log(`[Mining] Reached goal after mining.`);
             bot.isMining = false; // Reset the mining flag.
+            bot.emit('mining_stopped'); // Signal that mining has stopped
         }
     });
 

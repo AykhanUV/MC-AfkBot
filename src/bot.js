@@ -51,6 +51,21 @@ function createBot(config) {
         console.log('[Bot] Modules setup complete.');
     });
 
+    // Event listener for when a player joins the server.
+    bot.on('playerJoined', (player) => {
+        if (player.username === bot.username) return; // Ignore the bot's own join event
+
+        console.log(`[Bot] Player ${player.username} joined the server.`);
+
+        const playerActivityEnabled = config.utils['player-activity']?.enabled === true;
+        const leaveWhenPlayerJoins = config.utils['player-activity']?.leaveWhenPlayerJoins === true;
+
+        if (playerActivityEnabled && leaveWhenPlayerJoins) {
+            console.log('[Bot] Player activity enabled and leaveWhenPlayerJoins is true. Quitting...');
+            bot.quit(); // Quit the bot
+        }
+    });
+
     // Event listener for when the bot gets kicked from the server.
     bot.on('kicked', (reason) => {
         console.log(`[Bot] Kicked for reason: ${reason}`);
@@ -74,15 +89,7 @@ function createBot(config) {
     // Event listener for when the bot disconnects from the server.
     bot.on('end', () => {
         console.log('[Bot] Disconnected from server.');
-        // Attempt to reconnect if auto-reconnect is enabled in the config.
-        if (config.utils['auto-reconnect']) {
-            console.log('[Bot] Auto-reconnect enabled. Attempting to reconnect...');
-            setTimeout(() => {
-                createBot(config); // Re-create the bot instance.
-            }, config.utils['auto-reconnect-delay'] * 1000); // Use the configured delay.
-        } else {
-            console.log('[Bot] Auto-reconnect disabled. Not attempting to reconnect.');
-        }
+        // The reconnect logic is now handled in index.js
     });
 
     console.log('[Bot] Event listeners setup complete. Returning bot instance.');
