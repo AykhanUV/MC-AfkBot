@@ -16,11 +16,6 @@
     },
     "anti-afk": {
       "enabled": true,
-      "movement": {
-        "enabled": true,
-        "radius": 5,
-        "interval": 6000
-      },
       "interaction": {
         "enabled": true,
         "nearbyBlockTypes": [
@@ -57,7 +52,7 @@
     "auto-reconnect": true,
     "auto-reconnect-delay": 10,
     "player-activity": {
-      "enabled": true,
+      "enabled": false,
       "checkIntervalSeconds": 30,
       "leaveWhenPlayerJoins": true
     }

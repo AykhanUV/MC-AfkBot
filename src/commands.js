@@ -3,9 +3,9 @@
  * Listens for chat messages starting with '!' and processes them as commands.
  *
  * @param {mineflayer.Bot} bot - The mineflayer bot instance.
- * @param {object} config - The bot configuration (currently unused in this module).
+ * @param {object} _config - The bot configuration (currently unused in this module).
  */
-function setupCommands(bot, config) {
+function setupCommands(bot, _config) { // Mark config as unused
     console.log('[Commands] Module enabled. Listening for chat commands starting with "!"');
 
     // Listen for chat messages from any user.

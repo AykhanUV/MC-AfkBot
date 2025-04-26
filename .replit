@@ -1,5 +1,5 @@
 language = "nix"
-run = "node index.js"
+run = "node src/index.js"
 
 [[ports]]
 localPort = 8000

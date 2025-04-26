@@ -21,6 +21,7 @@ async function getPlayerStatus() {
         };
     } catch (err) {
         console.error(`[index.js] Error getting server status: ${err.message}`);
+        console.error(err.stack); // Add stack trace for debugging
         return null; // Indicate an error occurred
     }
 }
@@ -38,12 +39,12 @@ function startBot() {
 
     // Handle bot disconnection
     bot.once('end', () => {
-        console.log('[index.js] Bot disconnected.');
-        const currentBotInstance = bot; // Capture instance for closure
-        bot = null; // Clear the global bot instance
+        console.log('[index.js] Bot instance disconnected.');
+        // const currentBotInstance = bot; // This variable is unused
+        bot = null; // Clear the global bot instance reference
 
-        // Reconnect logic is now handled either by the interval check (if player-activity enabled)
-        // OR by the bot's internal logic (if player-activity disabled)
+        // Reconnect logic is handled either by the manageBotActivity interval (if player-activity enabled)
+        // OR by the bot's internal 'end' handler in bot.js (if player-activity disabled)
     });
 }
 
@@ -96,9 +97,13 @@ async function manageBotActivity() {
         console.log('[index.js] Other player(s) detected, stopping bot.');
         stopBot();
     } else if (otherPlayerCount === 0 && bot) {
-         console.log('[index.js] Server empty, bot is running (as expected).');
-    } else if (otherPlayerCount > 0 && !bot) {
-         console.log('[index.js] Other player(s) detected, bot remains offline (as expected).');
+        console.log('[index.js] Server empty, bot is running (as expected).');
+    } else if (otherPlayerCount > 0 && !bot && leaveWhenPlayerJoins) { // Only log this if bot *should* be offline
+        console.log('[index.js] Other player(s) detected, bot remains offline (as expected).');
+    } else if (otherPlayerCount > 0 && !bot && !leaveWhenPlayerJoins) {
+        // If leaveWhenPlayerJoins is false, the bot *should* be running, but isn't. Start it.
+        console.log('[index.js] Other player(s) detected, but bot should be running (leaveWhenPlayerJoins=false). Starting bot.');
+        startBot();
     }
 }
 

@@ -74,7 +74,8 @@ function createBot(config) {
 
     // Event listener for handling errors.
     bot.on('error', (err) => {
-        console.error('[Bot] Error:', err);
+        console.error('[Bot] Error occurred:');
+        console.error(err.stack || err); // Log stack trace if available
         // Note: The 'end' event might fire after certain errors.
     });
 
@@ -83,7 +84,7 @@ function createBot(config) {
         console.log('\x1b[33m[Bot] Bot died and respawned.\x1b[0m'); // Yellow color
         // Reset the mining state if the bot dies while mining.
         if (bot.isMining) {
-            console.log('[Bot] Resetting mining state due to death.');
+            console.log('[Bot] Setting isMining = false (Bot died)');
             bot.isMining = false;
             bot.emit('mining_stopped'); // Ensure mining stopped event is emitted
         }
