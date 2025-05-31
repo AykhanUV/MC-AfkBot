@@ -18,13 +18,14 @@
 
 ## Features
 
- - Anti-AFK Kick Module
- - Move to target block after join
+ - Anti-AFK Kick Module (Jumping, Rotation)
  - Mojang/Microsoft Account support
  - Chat log
  - Chat messages Module
  - Auto reconnect
  - Authentication with Login Security [HERE](https://aternos.org/addons/a/spigot/19362) (Authentication Plugin For Cracked Servers)
+ - Advanced interactive chat commands (follow, goto, drop items).
+ - Command priority system to prevent task interference.
  - Supported server versions: `1.8 - 1.21.4`
 
 ## Commands
@@ -35,3 +36,8 @@ You can interact with the bot in the Minecraft chat using the following commands
 - `!status`: Checks if the bot is online.
 - `!uptime`: Shows how long the bot process has been running.
 - `!inventory`: Lists the items currently in the bot's inventory.
+- `!follow <player_name>`: Bot follows the specified player.
+- `!stopFollow`: Stops the bot from following.
+- `!goto <x> <y> <z>`: Bot navigates to specified coordinates.
+- `!goto <player_name>`: Bot navigates to a player's current location.
+- `!dropitems`: Bot drops all items from its inventory.
