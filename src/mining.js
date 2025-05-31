@@ -42,11 +42,18 @@ function setupMining(bot, config) {
      * @param {Movements} defaultMove - The default movement settings for pathfinding.
      */
     async function mineRandomBlockNearby(bot, config, defaultMove) {
-        // Prevent starting a new mining task if one is already in progress.
+        // Prevent starting a new mining task if one is already in progress OR a user command is active.
         if (bot.isMining) {
+            // console.log('[Mining] Skipping cycle: Already mining.'); // Already handled by setInterval condition
             return;
         }
-        // Stop any existing pathfinder movement (likely from anti-AFK)
+        if (bot.isCommandActive) {
+            console.log('[Mining] Skipping cycle: Bot is busy with a user command.');
+            return;
+        }
+
+        // Stop any existing pathfinder movement (e.g., from a previous anti-AFK action if it snuck in)
+        // Note: User commands should already have stopped pathfinder via cancelCurrentTask.
         bot.pathfinder.stop();
         console.log('[Mining] Setting isMining = true (Starting cycle)');
         bot.isMining = true; // Set the flag to indicate mining is active.
@@ -54,6 +61,14 @@ function setupMining(bot, config) {
         console.log('[Mining] Starting mining cycle...');
 
         try {
+            // Double check command active status before proceeding with critical mining steps
+            if (bot.isCommandActive) {
+                console.log('[Mining] Aborting mining cycle: User command became active.');
+                bot.isMining = false;
+                bot.emit('mining_stopped');
+                return;
+            }
+
             // Step 0: Check if the bot's inventory has any empty slots.
             if (bot.inventory.emptySlotCount() === 0) {
                 console.log('[Mining] Inventory is full. Skipping mining cycle.');

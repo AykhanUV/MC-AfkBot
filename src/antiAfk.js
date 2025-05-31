@@ -28,18 +28,17 @@ function setupAntiAfk(bot, config) {
         console.log(`[Anti-AFK] Jumping enabled. Interval: ${antiAFK.jumping.interval / 1000}s, Probability: ${antiAFK.jumping.probability}`);
         currentTimers.jumping = setInterval(() => {
             if (!bot || !bot.entity) return;
-            if (!bot.isMining) {
+            // Only perform anti-AFK if no user command is active and bot is not mining
+            if (!bot.isCommandActive && !bot.isMining) {
                 if (Math.random() < antiAFK.jumping.probability) {
                     console.log('[Anti-AFK] Performing jump.');
                     bot.setControlState('jump', true);
                     setTimeout(() => {
-                        // Check bot still exists before setting control state
                         if (bot && bot.setControlState) {
                             bot.setControlState('jump', false);
                         }
-                    }, 500); // Short delay to ensure jump happens
+                    }, 500);
                 }
-            } else {
             }
         }, antiAFK.jumping.interval);
     }
@@ -49,9 +48,9 @@ function setupAntiAfk(bot, config) {
         console.log(`[Anti-AFK] Rotation enabled. Interval: ${antiAFK.rotation.interval / 1000}s`);
         currentTimers.rotation = setInterval(() => {
             if (!bot || !bot.entity) return;
-            if (!bot.isMining) {
+            // Only perform anti-AFK if no user command is active and bot is not mining
+            if (!bot.isCommandActive && !bot.isMining) {
                 rotateRandomly(bot);
-            } else {
             }
         }, antiAFK.rotation.interval);
     }
@@ -81,7 +80,11 @@ function setupAntiAfk(bot, config) {
 
 
 function rotateRandomly(bot) {
-     if (!bot || !bot.entity || bot.isMining) return;
+     // This function is called by the interval, which already checks isCommandActive and isMining
+     if (!bot || !bot.entity) return;
+     // The !bot.isMining check here is now redundant due to the caller's check, but harmless.
+     // Could be removed if desired for extreme cleanliness.
+     if (bot.isMining || bot.isCommandActive) return; // Explicitly re-check for safety, though caller should prevent.
 
     console.log('[Anti-AFK] Performing random rotation.');
     const yaw = Math.random() * Math.PI * 2 - Math.PI;
