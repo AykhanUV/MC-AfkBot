@@ -40,7 +40,6 @@ function startBot() {
     // Handle bot disconnection
     bot.once('end', () => {
         console.log('[index.js] Bot instance disconnected.');
-        // const currentBotInstance = bot; // This variable is unused
         bot = null; // Clear the global bot instance reference
 
         // Reconnect logic is handled either by the manageBotActivity interval (if player-activity enabled)

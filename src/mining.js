@@ -44,7 +44,6 @@ function setupMining(bot, config) {
     async function mineRandomBlockNearby(bot, config, defaultMove) {
         // Prevent starting a new mining task if one is already in progress.
         if (bot.isMining) {
-            // console.log('[Mining] Skipping cycle: Already mining.'); // Optional: Add if verbose logging is desired
             return;
         }
         // Stop any existing pathfinder movement (likely from anti-AFK)
@@ -213,7 +212,6 @@ function setupMining(bot, config) {
             bot.isMining = false; // Reset the mining flag.
             bot.emit('mining_stopped'); // Signal that mining has stopped
         } else {
-            // console.log('[Mining] Goal reached, but bot was not in mining state.'); // Optional: Add if verbose logging is desired
         }
     });
 
