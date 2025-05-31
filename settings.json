@@ -16,16 +16,6 @@
     },
     "anti-afk": {
       "enabled": true,
-      "interaction": {
-        "enabled": true,
-        "nearbyBlockTypes": [
-          "furnace",
-          "chest",
-          "crafting_table",
-          "brewing_stand"
-        ],
-        "interval": 120000
-      },
       "jumping": {
         "enabled": true,
         "probability": 0.2,
@@ -34,10 +24,6 @@
       "rotation": {
         "enabled": true,
         "interval": 45000
-      },
-      "fishing": {
-        "enabled": true,
-        "interval": 300000
       }
     },
     "chat-messages": {
@@ -56,12 +42,6 @@
       "checkIntervalSeconds": 30,
       "leaveWhenPlayerJoins": true
     }
-  },
-  "position": {
-    "enabled": false,
-    "x": 100,
-    "y": 64,
-    "z": 100
   },
   "mining": {
     "enabled": true,

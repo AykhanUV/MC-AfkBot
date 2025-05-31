@@ -16,25 +16,12 @@ function setupAntiAfk(bot, config) {
 
     const antiAFK = config.utils['anti-afk'];
     const currentTimers = { // Object to hold timers for *this* bot instance
-        interaction: null,
         jumping: null,
         rotation: null,
-        fishing: null
     };
     botTimers.set(bot.username, currentTimers); // Store timers associated with this bot
 
 
-    // --- Interaction ---
-    if (antiAFK.interaction.enabled) {
-        console.log(`[Anti-AFK] Interaction enabled. Interval: ${antiAFK.interaction.interval / 1000}s`);
-        currentTimers.interaction = setInterval(() => {
-            if (!bot || !bot.entity) return;
-            if (!bot.isMining) {
-                interactWithNearbyBlock(bot, antiAFK.interaction.nearbyBlockTypes);
-            } else {
-            }
-        }, antiAFK.interaction.interval);
-    }
 
     // --- Jumping ---
     if (antiAFK.jumping.enabled) {
@@ -69,31 +56,7 @@ function setupAntiAfk(bot, config) {
         }, antiAFK.rotation.interval);
     }
 
-    // --- Fishing ---
-    if (antiAFK.fishing.enabled) {
-        console.log(`[Anti-AFK] Fishing enabled. Interval: ${antiAFK.fishing.interval / 1000}s`);
-        currentTimers.fishing = setInterval(() => {
-            if (!bot || !bot.entity) return;
-            if (!bot.isMining) {
-                fish(bot, mcData);
-            } else {
-            }
-        }, antiAFK.fishing.interval);
-    }
 
-    // --- Initial Position ---
-    const pos = config.position;
-    if (pos.enabled) {
-        bot.once('spawn', () => {
-            if (!bot || !bot.entity) return;
-            if (!bot.isMining) {
-                console.log(`[Anti-AFK] Moving to initial position: (${pos.x}, ${pos.y}, ${pos.z})`);
-                bot.pathfinder.setGoal(new GoalBlock(pos.x, pos.y, pos.z));
-            } else {
-                console.log(`[Anti-AFK] Skipping move to initial position because bot is mining.`);
-            }
-        });
-    }
 
     // --- Cleanup on Bot End ---
     const cleanupListener = () => {
@@ -101,10 +64,8 @@ function setupAntiAfk(bot, config) {
         const timersToClear = botTimers.get(bot.username);
         if (timersToClear) {
             // Clear other intervals
-            if (timersToClear.interaction) clearInterval(timersToClear.interaction);
             if (timersToClear.jumping) clearInterval(timersToClear.jumping);
             if (timersToClear.rotation) clearInterval(timersToClear.rotation);
-            if (timersToClear.fishing) clearInterval(timersToClear.fishing);
 
             console.log('[Anti-AFK] All timers cleared.');
             botTimers.delete(bot.username); // Remove entry for this bot
@@ -117,40 +78,7 @@ function setupAntiAfk(bot, config) {
 // (Keep the internal !bot.isMining checks as a secondary safeguard)
 
 
-function interactWithNearbyBlock(bot, blockTypes) {
-     if (!bot || !bot.entity || bot.isMining) return;
 
-    const nearbyBlock = bot.findBlock({
-        matching: (block) => blockTypes.includes(block.name),
-        maxDistance: 3,
-    });
-    if (nearbyBlock) {
-        console.log(`[Anti-AFK] Interacting with nearby block: ${nearbyBlock.name}`);
-        bot.activateBlock(nearbyBlock).catch(err => {
-            console.error(`[Anti-AFK] Error interacting with block ${nearbyBlock.name}: ${err.message}`);
-            console.error(err.stack); // Add stack trace
-        });
-    }
-}
-
-async function fish(bot, mcData) {
-     if (!bot || !bot.entity || bot.isMining) return;
-
-    console.log('[Anti-AFK] Attempting to fish...');
-    try {
-        const fishingRod = mcData.itemsByName.fishing_rod;
-        if (!fishingRod) {
-            console.error('[Anti-AFK] Fishing rod item data not found for this Minecraft version.');
-            return;
-        }
-        await bot.equip(fishingRod.id, 'hand');
-        await bot.fish();
-        console.log('[Anti-AFK] Fishing action complete.');
-    } catch (err) {
-        console.error(`[Anti-AFK] Fishing error: ${err.message}`);
-        console.error(err.stack); // Add stack trace
-    }
-}
 
 function rotateRandomly(bot) {
      if (!bot || !bot.entity || bot.isMining) return;
