@@ -252,5 +252,177 @@ function setupMining(bot, config) {
     });
 }
 
+// Helper function (New or Refactored from existing findTargetBlock)
+async function findSpecificBlockNearby(bot, blockName, mcData, searchRadius = 128, maxAttempts = 20) { // Increased default searchRadius
+    const blockType = mcData.blocksByName[blockName];
+    if (!blockType) {
+        console.log(`[MiningCmd] [findSpecific] Unknown block type: ${blockName}`);
+        return null;
+    }
+
+    console.log(`[MiningCmd] [findSpecific] Searching for ${blockName} (ID: ${blockType.id}) within ${searchRadius} blocks around ${bot.entity.position}.`);
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+        console.log(`[MiningCmd] [findSpecific] Attempt ${attempts + 1}/${maxAttempts} to find ${blockName}.`);
+        
+        // bot.findBlocks returns an array of Vec3 positions
+        const blockPositions = bot.findBlocks({
+            matching: blockType.id,
+            maxDistance: searchRadius,
+            count: 10 // Find a few potential candidates
+        });
+
+        console.log(`[MiningCmd] [findSpecific] bot.findBlocks found ${blockPositions.length} potential positions for ${blockName}.`);
+
+        if (blockPositions.length > 0) {
+            for (const pos of blockPositions) {
+                const actualBlock = bot.blockAt(pos); // Get the block object from its position
+                if (!actualBlock) {
+                    console.log(`[MiningCmd] [findSpecific] Null block at position ${pos}, skipping.`);
+                    continue;
+                }
+                // Ensure the block we got is indeed the one we're looking for (it should be, due to matching ID)
+                if (actualBlock.name !== blockName) {
+                    console.log(`[MiningCmd] [findSpecific] Found ${actualBlock.name} instead of ${blockName} at ${pos}, skipping.`);
+                    continue;
+                }
+
+                console.log(`[MiningCmd] [findSpecific] Checking block ${actualBlock.name} at ${actualBlock.position}.`);
+                const blockBelow = bot.blockAt(actualBlock.position.offset(0, -1, 0));
+                
+                if (blockBelow && blockBelow.name !== 'air' && blockBelow.name !== 'water' && blockBelow.name !== 'lava') {
+                    console.log(`[MiningCmd] [findSpecific] Found valid ${actualBlock.name} at ${actualBlock.position} with solid ground below (${blockBelow.name}).`);
+                    return actualBlock; // Return the full block object
+                } else {
+                    console.log(`[MiningCmd] [findSpecific] Skipping ${actualBlock.name} at ${actualBlock.position} due to hazard below: ${blockBelow ? blockBelow.name : 'null (likely air)'}.`);
+                }
+            }
+            // If loop finishes, all found blocks had hazards or were invalid for other reasons
+            console.log(`[MiningCmd] [findSpecific] All ${blockPositions.length} found blocks for ${blockName} had hazards or were invalid in this attempt.`);
+        }
+        attempts++;
+        if (attempts < maxAttempts) {
+            // console.log(`[MiningCmd] [findSpecific] Waiting before next attempt for ${blockName}.`);
+            await bot.waitForTicks(10); // Increased delay slightly
+        }
+    }
+    console.log(`[MiningCmd] [findSpecific] No valid ${blockName} found after ${maxAttempts} attempts.`);
+    return null;
+}
+
+// New main function for the !mine command
+async function executeCommandMine(bot, blockTypeName, config) { // Pass config for mining settings like radius
+    const mcData = require('minecraft-data')(bot.version); // Ensure mcData is available
+    const defaultMove = new Movements(bot, mcData); // Needed for moveToBlock logic if we reuse it
+
+    console.log(`[MiningCmd] Attempting to mine ${blockTypeName} until inventory full or stopped.`);
+    bot.chat(`Starting to mine ${blockTypeName}. Use !stopMine to cancel.`);
+
+    let minedCount = 0;
+
+    try {
+        while (true) {
+            // 1. Check for interruption or completion conditions
+            if (!bot.isCommandActive || bot.currentPathTask !== 'mine_block_command') {
+                console.log('[MiningCmd] Mining command was cancelled or superseded.');
+                // bot.chat('Mining operation stopped.'); // Chat message handled by !stopMine or new command
+                break;
+            }
+
+            if (bot.inventory.emptySlotCount() === 0) {
+                console.log('[MiningCmd] Inventory is full.');
+                bot.chat('Inventory full. Stopping mining operation.');
+                break;
+            }
+
+            // 2. Find the block
+            // searchRadius in findSpecificBlockNearby is now larger by default
+            const targetBlock = await findSpecificBlockNearby(bot, blockTypeName, mcData);
+
+            if (!targetBlock) {
+                console.log(`[MiningCmd] No more ${blockTypeName} found nearby.`);
+                bot.chat(`No more ${blockTypeName} found nearby. Stopping mining.`);
+                break;
+            }
+            console.log(`[MiningCmd] Found ${blockTypeName} at ${targetBlock.position}.`);
+
+            // 3. Go to the block (reusing moveToBlock logic, ensure it's compatible or adapt)
+            // For simplicity, let's use a direct goto with timeout here.
+            // moveToBlock from existing mining might have its own state logic we don't want.
+            try {
+                const goal = new GoalNear(targetBlock.position.x, targetBlock.position.y, targetBlock.position.z, 1);
+                const GOTO_TIMEOUT_MS_MINING_CMD = 15000;
+                let miningCmdGotoTimeoutHandle = null;
+                const miningCmdTimeoutPromise = new Promise((resolve) => {
+                    miningCmdGotoTimeoutHandle = setTimeout(() => resolve('timeout'), GOTO_TIMEOUT_MS_MINING_CMD);
+                });
+                
+                const gotoResult = await Promise.race([bot.pathfinder.goto(goal), miningCmdTimeoutPromise]);
+                
+                if (miningCmdGotoTimeoutHandle) clearTimeout(miningCmdGotoTimeoutHandle);
+
+                if (gotoResult === 'timeout') {
+                    console.log(`[MiningCmd] Timeout reaching ${targetBlock.position} for ${blockTypeName}. Skipping this block.`);
+                    bot.chat(`Timeout reaching block, trying next one.`);
+                    await bot.waitForTicks(20);
+                    continue;
+                }
+            } catch (err) {
+                console.log(`[MiningCmd] Error pathfinding to ${targetBlock.name} for ${blockTypeName}: ${err.message}. Skipping this block.`);
+                bot.chat(`Error moving to block: ${err.message}. Trying next one.`);
+                await bot.waitForTicks(20);
+                continue;
+            }
+            
+            if (!bot.isCommandActive || bot.currentPathTask !== 'mine_block_command') {
+                console.log('[MiningCmd] Mining command was cancelled during pathfinding.');
+                break;
+            }
+            if (bot.inventory.emptySlotCount() === 0) {
+                console.log('[MiningCmd] Inventory full after pathfinding.');
+                bot.chat('Inventory full. Stopping mining operation.');
+                break;
+            }
+
+            // 4. Dig the block
+            try {
+                // Tool selection logic using bot.pathfinder.bestHarvestTool
+                const bestTool = bot.pathfinder.bestHarvestTool(targetBlock);
+
+                if (bestTool) {
+                    console.log(`[MiningCmd] [ToolSelect] Best tool identified by pathfinder: ${bestTool.name} for ${targetBlock.name}`);
+                    if (bot.heldItem?.type !== bestTool.type) {
+                        console.log(`[MiningCmd] Equipping ${bestTool.name}.`);
+                        await bot.equip(bestTool, 'hand');
+                    } else {
+                        console.log(`[MiningCmd] Already holding ${bestTool.name}.`);
+                    }
+                } else {
+                    console.log(`[MiningCmd] [ToolSelect] No suitable tool found by pathfinder for ${targetBlock.name}. Mining by hand.`);
+                }
+                
+                await bot.dig(targetBlock);
+                minedCount++;
+                console.log(`[MiningCmd] Successfully dug ${blockTypeName}. Mined count: ${minedCount}. Waiting for item drop.`);
+                await bot.waitForTicks(15); // Wait 0.75 seconds for item to drop and be picked up
+            } catch (err) {
+                console.log(`[MiningCmd] Error digging ${targetBlock.name} for ${blockTypeName}: ${err.message}.`);
+                bot.chat(`Error digging ${blockTypeName}: ${err.message}.`);
+                await bot.waitForTicks(20);
+                continue;
+            }
+             // Optional: brief pause or check after digging before finding next block
+            await bot.waitForTicks(5);
+        }
+    } catch (err) {
+        console.error(`[MiningCmd] Unexpected error during executeCommandMine: ${err.message}\n${err.stack}`);
+        bot.chat('An unexpected error occurred during !mine command.');
+    } finally {
+        console.log(`[MiningCmd] executeCommandMine finished. Mined ${minedCount} ${blockTypeName}.`);
+        // The calling command in commands.js should handle resetting bot.isCommandActive and bot.currentPathTask
+        // by calling cancelCurrentTask in its own finally block.
+    }
+}
+
 // Export the setup function for use in bot.js
-module.exports = { setupMining };
+module.exports = { setupMining, executeCommandMine };

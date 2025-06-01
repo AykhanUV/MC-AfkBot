@@ -24,7 +24,7 @@
  - Chat messages Module
  - Auto reconnect
  - Authentication with Login Security [HERE](https://aternos.org/addons/a/spigot/19362) (Authentication Plugin For Cracked Servers)
- - Advanced interactive chat commands (follow, goto, drop items).
+ - Advanced interactive chat commands (follow, goto, drop items, mine).
  - Command priority system to prevent task interference.
  - Supported server versions: `1.8 - 1.21.4`
 
@@ -41,3 +41,5 @@ You can interact with the bot in the Minecraft chat using the following commands
 - `!goto <x> <y> <z>`: Bot navigates to specified coordinates.
 - `!goto <player_name>`: Bot navigates to a player's current location.
 - `!dropitems`: Bot drops all items from its inventory.
+- `!mine <block_type>`: Bot mines the specified block type continuously until inventory is full or `!stopMine` is used.
+- `!stopMine`: Stops the current `!mine` operation.

@@ -1,4 +1,5 @@
 const { GoalFollow, GoalBlock } = require('mineflayer-pathfinder').goals;
+const { executeCommandMine } = require('./mining'); // Import the new function
 
 /**
  * Sets up the command handling module for the bot.
@@ -16,7 +17,8 @@ function setupCommands(bot, _config) { // Mark config as unused
     bot.followIntervalId = bot.followIntervalId || null;
     bot.currentPathTask = bot.currentPathTask || 'none'; // 'none', 'follow', 'goto'
     bot.isCommandActive = bot.isCommandActive || false;
-    // bot.gotoTimeoutId is no longer needed globally, managed locally in !goto
+    // bot.gotoTimeoutId is managed locally in !goto
+    bot.miningCommandTargetBlockType = bot.miningCommandTargetBlockType || null; // For !mine command
 
     // Helper function to find a player by name, case-insensitively
     function findTargetPlayerEntity(botInstance, name) {
@@ -48,10 +50,10 @@ function setupCommands(bot, _config) { // Mark config as unused
             botInstance.followTargetName = null;
         }
         botInstance.currentPathTask = 'none';
+        botInstance.miningCommandTargetBlockType = null; // Reset mining command target
 
-        // Clear goto timeout if it exists (though now managed locally in !goto, this is a safeguard)
-        // This can be removed if bot.gotoTimeoutId is fully removed from bot object.
-        if (botInstance.gotoTimeoutId) { 
+        // Clear goto timeout if it exists (this was for an older !goto implementation)
+        if (botInstance.gotoTimeoutId) {
             clearTimeout(botInstance.gotoTimeoutId);
             botInstance.gotoTimeoutId = null;
         }
@@ -89,7 +91,7 @@ function setupCommands(bot, _config) { // Mark config as unused
                     bot.chat(`I'm online and running!`);
                     break;
                 case 'help':
-                    bot.chat(`Available commands: !status, !help, !uptime, !inventory, !follow <player>, !stopFollow, !goto <x> <y> <z | player>, !dropitems`);
+                    bot.chat(`Available commands: !status, !help, !uptime, !inventory, !follow <player>, !stopFollow, !goto <x> <y> <z | player>, !dropitems, !mine <block_type>, !stopMine`);
                     break;
                 case 'uptime':
                     const uptimeSeconds = process.uptime();
@@ -242,6 +244,46 @@ function setupCommands(bot, _config) { // Mark config as unused
                             bot.chat('Finished dropping items.');
                             bot.isCommandActive = false; 
                         })();
+                    }
+                    break;
+                case 'mine':
+                    cancelCurrentTask(bot, true); // New command takes over
+                    if (args.length < 1) {
+                        bot.chat('Usage: !mine <block_type>');
+                        bot.isCommandActive = false; // Command failed to start
+                        break;
+                    }
+                    const blockTypeNameToMine = args[0];
+                    
+                    bot.isCommandActive = true;
+                    bot.currentPathTask = 'mine_block_command';
+                    bot.miningCommandTargetBlockType = blockTypeNameToMine;
+
+                    // Call the mining task. It runs asynchronously.
+                    // Its internal loop will check bot.isCommandActive.
+                    // It should handle its own chat messages for starting/stopping/errors.
+                    executeCommandMine(bot, blockTypeNameToMine, _config) // Pass bot, blockType, and full config
+                        .catch(err => {
+                            console.error(`[Commands] Error from executeCommandMine: ${err.message}`);
+                            bot.chat('The !mine command encountered an unexpected error.');
+                        })
+                        .finally(() => {
+                            // This finally block runs after executeCommandMine promise resolves/rejects.
+                            // Ensure state is cleaned up if executeCommandMine didn't (e.g., due to an unhandled exception).
+                            if (bot.currentPathTask === 'mine_block_command') {
+                                 console.log("[Commands] !mine command's async wrapper finished. Ensuring state cleanup.");
+                                 cancelCurrentTask(bot, false);
+                            }
+                        });
+                    break;
+                case 'stopmine':
+                    if (bot.isCommandActive && bot.currentPathTask === 'mine_block_command') {
+                        bot.chat('Stopping mining operation...');
+                        // cancelCurrentTask will set isCommandActive = false,
+                        // which the loop in executeCommandMine will detect and break.
+                        cancelCurrentTask(bot, false);
+                    } else {
+                        bot.chat('Not currently mining with !mine command.');
                     }
                     break;
                 default:
