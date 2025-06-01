@@ -1,7 +1,6 @@
 const mineflayer = require('mineflayer');
 const { pathfinder } = require('mineflayer-pathfinder');
 const { setupAuth } = require('./auth');
-const { setupAntiAfk } = require('./antiAfk');
 const { setupChat } = require('./chat');
 const { setupCommands } = require('./commands');
 const { setupWebserver } = require('./webserver');
@@ -40,9 +39,8 @@ function createBot(config) {
 
         console.log('[Bot] Plugins loaded. Setting up modules...');
 
-        // Set up the various bot modules (authentication, anti-AFK, chat, commands, webserver, mining).
+        // Set up the various bot modules (authentication, chat, commands, webserver, mining).
         setupAuth(bot, config);
-        setupAntiAfk(bot, config);
         setupChat(bot, config);
         setupCommands(bot, config);
         setupWebserver(bot, config);

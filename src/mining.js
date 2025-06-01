@@ -53,7 +53,7 @@ function setupMining(bot, config) {
         }
 
         // If we've reached here, no command is active, and we are not already mining.
-        // Now it's safe to stop any residual pathfinder movement (e.g., from anti-AFK)
+        // Now it's safe to stop any residual pathfinder movement (e.g., from other bot activities)
         // before starting the mining sequence.
         bot.pathfinder.stop();
 

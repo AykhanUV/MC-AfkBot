@@ -1,6 +1,6 @@
 # Afk Bot
 - Functional minecraft AFK bot for servers
-- Anti-AFK, Auto-Auth, Microsoft/Offline accounts support.
+- Auto-Auth, Microsoft/Offline accounts support.
 
 # Note
 - This project is not perfect and does random actions, put bot away from house or builds
@@ -18,7 +18,6 @@
 
 ## Features
 
- - Anti-AFK Kick Module (Jumping, Rotation)
  - Mojang/Microsoft Account support
  - Chat log
  - Chat messages Module
