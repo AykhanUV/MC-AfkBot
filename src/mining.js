@@ -52,9 +52,11 @@ function setupMining(bot, config) {
             return;
         }
 
-        // Stop any existing pathfinder movement (e.g., from a previous anti-AFK action if it snuck in)
-        // Note: User commands should already have stopped pathfinder via cancelCurrentTask.
+        // If we've reached here, no command is active, and we are not already mining.
+        // Now it's safe to stop any residual pathfinder movement (e.g., from anti-AFK)
+        // before starting the mining sequence.
         bot.pathfinder.stop();
+
         console.log('[Mining] Setting isMining = true (Starting cycle)');
         bot.isMining = true; // Set the flag to indicate mining is active.
         bot.emit('mining_started'); // Signal that mining has started
@@ -85,9 +87,20 @@ function setupMining(bot, config) {
                 console.log(`[Mining] Found target block: ${targetBlock.name} at ${targetBlock.position}`);
                 // Step 2: Dig the found block.
                 await digBlock(bot, targetBlock);
+
+                // Check if mining was interrupted during digBlock
+                if (!bot.isMining || bot.isCommandActive) {
+                    console.log('[Mining] Mining task interrupted after digging, before moving.');
+                    // bot.isMining should have been set to false by cancelCurrentTask if a command interrupted.
+                    // If it's just bot.isCommandActive, ensure isMining is also false.
+                    if (bot.isCommandActive && bot.isMining) bot.isMining = false;
+                    if (!bot.isMining) bot.emit('mining_stopped'); // Ensure this is emitted if not already
+                    return;
+                }
+
                 // Step 3: Move towards the location of the mined block.
                 await moveToBlock(bot, targetBlock, defaultMove);
-                // Note: The 'goal_reached' event or timeout in moveToBlock will handle setting bot.isMining = false
+                // Note: The 'goal_reached' event or timeout in moveToBlock (or interruption) will handle setting bot.isMining = false
             } else {
                 console.log('[Mining] No suitable block found nearby.');
                 console.log('[Mining] Setting isMining = false (No block found)');

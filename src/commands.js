@@ -10,15 +10,33 @@ const { GoalFollow, GoalBlock } = require('mineflayer-pathfinder').goals;
 function setupCommands(bot, _config) { // Mark config as unused
     console.log('[Commands] Module enabled. Listening for chat commands starting with "!"');
 
-    bot.isFollowing = false;
-    bot.followTargetName = null;
-    bot.followIntervalId = null;
-    bot.currentPathTask = 'none'; // 'none', 'follow', 'goto'
-    bot.isCommandActive = false; // NEW: Flag to indicate a user command is active
+    // Initialize bot state properties if they don't exist
+    bot.isFollowing = bot.isFollowing || false;
+    bot.followTargetName = bot.followTargetName || null;
+    bot.followIntervalId = bot.followIntervalId || null;
+    bot.currentPathTask = bot.currentPathTask || 'none'; // 'none', 'follow', 'goto'
+    bot.isCommandActive = bot.isCommandActive || false;
+    // bot.gotoTimeoutId is no longer needed globally, managed locally in !goto
+
+    // Helper function to find a player by name, case-insensitively
+    function findTargetPlayerEntity(botInstance, name) {
+        const lowerName = name.toLowerCase();
+        for (const playerName in botInstance.players) {
+            if (playerName.toLowerCase() === lowerName) {
+                return botInstance.players[playerName]?.entity;
+            }
+        }
+        return null; // Player not found
+    }
 
     function cancelCurrentTask(botInstance, newCommandTakesOver = false) {
-        // Stop pathfinding
-        botInstance.pathfinder.stop();
+        // Stop pathfinding only if no new command is immediately taking over
+        // or if we are explicitly stopping a follow task.
+        // The new command's setGoal/goto will handle stopping the previous path.
+        if (!newCommandTakesOver || botInstance.isFollowing) {
+            // console.log(`[cancelCurrentTask] Stopping pathfinder. newCommandTakesOver: ${newCommandTakesOver}, isFollowing: ${botInstance.isFollowing}`); // Debug log
+            botInstance.pathfinder.stop();
+        }
 
         // Clear follow state
         if (botInstance.isFollowing) {
@@ -27,17 +45,22 @@ function setupCommands(bot, _config) { // Mark config as unused
                 botInstance.followIntervalId = null;
             }
             botInstance.isFollowing = false;
-            // const oldTarget = botInstance.followTargetName; // No need to announce here if another command takes over
             botInstance.followTargetName = null;
         }
         botInstance.currentPathTask = 'none';
+
+        // Clear goto timeout if it exists (though now managed locally in !goto, this is a safeguard)
+        // This can be removed if bot.gotoTimeoutId is fully removed from bot object.
+        if (botInstance.gotoTimeoutId) { 
+            clearTimeout(botInstance.gotoTimeoutId);
+            botInstance.gotoTimeoutId = null;
+        }
 
         // Stop mining if it was active
         if (botInstance.isMining) {
             botInstance.isMining = false;
             botInstance.emit('mining_stopped'); // Notify other modules if necessary
             console.log('[Commands] Mining stopped due to command override.');
-            // botInstance.chat('Mining has been stopped by a new command.'); // Optional chat message
         }
 
         // If no new command is immediately taking over, mark command as inactive
@@ -63,114 +86,149 @@ function setupCommands(bot, _config) { // Mark config as unused
             // Process the command using a switch statement.
             switch (command) {
                 case 'status':
-                    // Responds with a simple online message.
                     bot.chat(`I'm online and running!`);
                     break;
                 case 'help':
-                    // Lists available commands.
                     bot.chat(`Available commands: !status, !help, !uptime, !inventory, !follow <player>, !stopFollow, !goto <x> <y> <z | player>, !dropitems`);
                     break;
                 case 'uptime':
-                    // Calculates and displays the bot's process uptime.
                     const uptimeSeconds = process.uptime();
                     const uptimeString = formatUptime(uptimeSeconds);
                     bot.chat(`Bot uptime: ${uptimeString}`);
                     break;
                 case 'inventory':
-                    // Lists the items in the bot's inventory.
                     const inventory = bot.inventory.items();
                     if (inventory.length === 0) {
                         bot.chat('My inventory is empty.');
                     } else {
-                        // Format the inventory list into a readable string.
                         const inventoryList = inventory.map(item => `${item.count} ${item.name}`).join(', ');
                         bot.chat(`I have: ${inventoryList}`);
                     }
                     break;
                 case 'follow':
-                    cancelCurrentTask(bot, true); // New command takes over
+                    cancelCurrentTask(bot, true); 
                     if (args.length < 1) {
                         bot.chat('Usage: !follow <player_name>');
-                        bot.isCommandActive = false; // Command failed to start
+                        bot.isCommandActive = false; 
                         break;
                     }
-                    const targetPlayerName = args[0];
-                    const targetEntityToFollow = bot.players[targetPlayerName]?.entity;
+                    const targetPlayerNameArgFollow = args[0]; 
+                    const targetEntityToFollow = findTargetPlayerEntity(bot, targetPlayerNameArgFollow);
 
                     if (targetEntityToFollow) {
-                        bot.isCommandActive = true; // Command is now active
-                        bot.isFollowing = true;
-                        bot.followTargetName = targetPlayerName;
-                        bot.currentPathTask = 'follow';
-                        bot.chat(`Now following ${targetPlayerName}.`);
+                        const actualPlayerName = targetEntityToFollow.username || targetPlayerNameArgFollow; 
 
-                        if (bot.followIntervalId) clearInterval(bot.followIntervalId); // Ensure old one is gone
+                        bot.isCommandActive = true; 
+                        bot.isFollowing = true;
+                        bot.followTargetName = actualPlayerName; 
+                        bot.currentPathTask = 'follow';
+                        bot.chat(`Now following ${actualPlayerName}.`);
+
+                        if (bot.followIntervalId) clearInterval(bot.followIntervalId); 
 
                         bot.followIntervalId = setInterval(() => {
-                            if (!bot.isFollowing || !bot.players[targetPlayerName]?.entity?.isValid) {
-                                bot.chat(`Lost target ${targetPlayerName} or follow stopped.`);
-                                cancelCurrentTask(bot, false); // Follow ended, no new command
+                            const currentTargetEntityInstance = bot.players[bot.followTargetName]?.entity;
+
+                            if (!bot.isFollowing || !currentTargetEntityInstance || !currentTargetEntityInstance.isValid) {
+                                bot.chat(`Lost target ${bot.followTargetName || 'player'} or follow stopped.`);
+                                cancelCurrentTask(bot, false); 
                                 return;
                             }
-                            const currentTargetEntity = bot.players[targetPlayerName].entity;
-                            bot.pathfinder.setGoal(new GoalFollow(currentTargetEntity, 3), true);
+                            bot.pathfinder.setGoal(new GoalFollow(currentTargetEntityInstance, 3), true);
                         }, 1000);
                     } else {
-                        bot.chat(`Player ${targetPlayerName} not found.`);
-                        bot.isCommandActive = false; // Command failed to start
+                        bot.chat(`Player ${targetPlayerNameArgFollow} not found.`);
+                        bot.isCommandActive = false; 
                     }
                     break;
                 case 'stopfollow':
                     if (bot.isFollowing) {
                         const oldTarget = bot.followTargetName;
-                        cancelCurrentTask(bot, false); // Command ends here
+                        cancelCurrentTask(bot, false); 
                         bot.chat(`Stopped following ${oldTarget}.`);
                     } else {
                         bot.chat('Not currently following anyone.');
-                        // bot.isCommandActive remains false if it was already false
                     }
                     break;
                 case 'goto':
-                    cancelCurrentTask(bot, true); // New command takes over
+                    cancelCurrentTask(bot, true); 
+                    let gotoTimeoutHandle = null; 
+                    const GOTO_TIMEOUT_MS = 30000;
+
+                    const executeGoto = async (goal, type) => {
+                        bot.isCommandActive = true;
+                        bot.currentPathTask = 'goto';
+                        let timedOut = false;
+
+                        const timeoutPromise = new Promise((resolve) => {
+                            gotoTimeoutHandle = setTimeout(() => {
+                                timedOut = true;
+                                resolve('timeout'); 
+                            }, GOTO_TIMEOUT_MS);
+                        });
+
+                        try {
+                            const result = await Promise.race([bot.pathfinder.goto(goal), timeoutPromise]);
+                            
+                            if (gotoTimeoutHandle) { 
+                                clearTimeout(gotoTimeoutHandle);
+                                gotoTimeoutHandle = null;
+                            }
+
+                            if (result === 'timeout') {
+                                bot.pathfinder.stop(); 
+                                bot.chat(`!goto to ${type} timed out.`);
+                            } else {
+                                bot.chat('Reached destination.');
+                            }
+                        } catch (err) {
+                            if (gotoTimeoutHandle) { 
+                                clearTimeout(gotoTimeoutHandle);
+                                gotoTimeoutHandle = null;
+                            }
+                            bot.chat(`!goto to ${type} failed: ${err.message}`);
+                        } finally {
+                            if (bot.currentPathTask === 'goto' && bot.isCommandActive) {
+                                cancelCurrentTask(bot, false);
+                            }
+                        }
+                    };
+
                     if (args.length === 3) {
                         const x = parseInt(args[0], 10);
                         const y = parseInt(args[1], 10);
                         const z = parseInt(args[2], 10);
                         if (isNaN(x) || isNaN(y) || isNaN(z)) {
                             bot.chat('Invalid coordinates. Usage: !goto <x> <y> <z>');
-                            bot.isCommandActive = false; // Command failed
+                            bot.isCommandActive = false; 
                             break;
                         }
-                        bot.isCommandActive = true; // Command is now active
-                        bot.currentPathTask = 'goto';
-                        bot.pathfinder.setGoal(new GoalBlock(x, y, z));
                         bot.chat(`Navigating to coordinates: ${x}, ${y}, ${z}.`);
+                        executeGoto(new GoalBlock(x, y, z), 'coords');
                     } else if (args.length === 1) {
-                        const playerName = args[0];
-                        const targetPlayerEntity = bot.players[playerName]?.entity;
-                        if (targetPlayerEntity) {
-                            bot.isCommandActive = true; // Command is now active
-                            bot.currentPathTask = 'goto';
-                            const pos = targetPlayerEntity.position;
-                            bot.pathfinder.setGoal(new GoalBlock(pos.x, pos.y, pos.z));
-                            bot.chat(`Navigating to ${playerName}'s current location.`);
+                        const playerNameArgGoto = args[0];
+                        const targetPlayerEntityForGoto = findTargetPlayerEntity(bot, playerNameArgGoto);
+                        if (targetPlayerEntityForGoto) {
+                            const pos = targetPlayerEntityForGoto.position;
+                            bot.chat(`Navigating to ${targetPlayerEntityForGoto.username || playerNameArgGoto}'s current location.`);
+                            executeGoto(new GoalBlock(pos.x, pos.y, pos.z), 'player');
                         } else {
-                            bot.chat(`Player ${playerName} not found.`);
-                            bot.isCommandActive = false; // Command failed
+                            bot.chat(`Player ${playerNameArgGoto} not found.`);
+                            bot.isCommandActive = false; 
                         }
                     } else {
                         bot.chat('Usage: !goto <x> <y> <z> OR !goto <player_name>');
-                        bot.isCommandActive = false; // Command failed due to wrong args
+                        bot.isCommandActive = false; 
                     }
                     break;
                 case 'dropitems':
-                    cancelCurrentTask(bot, true); // Stop other movement, new command takes over (briefly)
-                    bot.isCommandActive = true; // Command is now active
+                    cancelCurrentTask(bot, true); 
+                    bot.isCommandActive = true; 
 
                     const items = bot.inventory.items();
                     if (items.length === 0) {
                         bot.chat('My inventory is empty.');
-                        bot.isCommandActive = false; // Command finished (nothing to do)
+                        bot.isCommandActive = false; 
                     } else {
                         bot.chat('Dropping all items...');
                         (async () => {
@@ -182,42 +240,36 @@ function setupCommands(bot, _config) { // Mark config as unused
                                 }
                             }
                             bot.chat('Finished dropping items.');
-                            bot.isCommandActive = false; // Command finished
+                            bot.isCommandActive = false; 
                         })();
                     }
                     break;
                 default:
-                    // Handles unrecognized commands.
                     bot.chat(`Unknown command: ${command}. Try !help for a list of commands.`);
             }
         }
     });
 
-    bot.pathfinder.on('goal_reached', () => {
-        if (bot.currentPathTask === 'goto') {
-            bot.chat('Reached destination.');
-            bot.currentPathTask = 'none';
-            bot.isCommandActive = false; // GOTO command finished
+    // Global pathfinder event listeners - primarily for other modules or minimal logging.
+    // !goto and !follow manage their own primary pathfinding lifecycle.
+    bot.on('goal_reached', () => {
+        if (!bot.isCommandActive) { 
+            // console.log('[Commands] Global: goal_reached event (bot was not command-active).');
         }
     });
 
-    bot.pathfinder.on('path_update', (results) => {
-        if (bot.currentPathTask === 'goto') {
-            if (results.status === 'noPath') {
-                bot.chat('Cannot reach destination (no path found).');
-                bot.currentPathTask = 'none';
-                bot.isCommandActive = false; // GOTO command finished
-            } else if (results.status === 'timeout') {
-                bot.chat('Cannot reach destination (pathfinding timed out).');
-                bot.currentPathTask = 'none';
-                bot.isCommandActive = false; // GOTO command finished
-            }
+    bot.on('path_update', (results) => {
+        if (!bot.isCommandActive) {
+            // console.log(`[Commands] Global: path_update event (bot was not command-active): status ${results.status}`);
         }
     });
-
-    // It's good practice to also handle path_reset or other pathfinder events if needed,
-    // for example, if the bot gets stuck or pathfinding is cancelled externally.
-    // For now, explicit command cancellation and goal_reached/noPath/timeout cover main cases.
+    
+    bot.on('path_reset', (reason) => {
+        const reasonMsg = (reason && typeof reason === 'object' && reason.message) ? reason.message : String(reason);
+        if (!bot.isCommandActive) {
+            // console.log(`[Commands] Global: path_reset event (bot was not command-active). Reason: ${reasonMsg}`);
+        }
+    });
 
     /**
      * Formats a duration given in seconds into a human-readable string (Xd Yh Zm Ws).
