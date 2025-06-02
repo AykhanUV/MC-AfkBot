@@ -11,9 +11,10 @@ const { setupMining } = require('./mining');
  * This is the main function that initializes the bot, loads plugins, and sets up event listeners.
  *
  * @param {object} config - The bot configuration object, loaded from settings.json.
+ * @param {object} initialRuntimeState - The initial runtime state (e.g., from runtime_state.json).
  * @returns {mineflayer.Bot} - The created and configured mineflayer bot instance.
  */
-function createBot(config) {
+function createBot(config, initialRuntimeState) {
     console.log('[Bot] Creating bot instance...');
 
     // Create the Minecraft bot instance using options from the config file.
@@ -25,6 +26,10 @@ function createBot(config) {
         port: config.server.port,                // Server port from config
         version: config.server.version,          // Minecraft version from config
     });
+
+    // Initialize runtime states on the bot object
+    bot.isMiningEnabled = initialRuntimeState.isMiningEnabled;
+    // Add other runtime states here if needed in the future
 
     console.log('[Bot] Bot instance created. Setting up event listeners...');
 

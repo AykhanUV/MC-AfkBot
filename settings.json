@@ -2,29 +2,17 @@
   "bot-account": {
     "username": "AfkBot(Change this)",
     "password": "",
-    "type": "mojang"
+    "type": "offline"
   },
   "server": {
     "ip": "Your server ip",
     "port": 22556,
-    "version": "1.17.1"
+    "version": "1.21.4"
   },
   "utils": {
     "auto-auth": {
       "enabled": false,
       "password": ""
-    },
-    "anti-afk": {
-      "enabled": true,
-      "jumping": {
-        "enabled": true,
-        "probability": 0.2,
-        "interval": 30000
-      },
-      "rotation": {
-        "enabled": true,
-        "interval": 45000
-      }
     },
     "chat-messages": {
       "enabled": true,
@@ -44,7 +32,6 @@
     }
   },
   "mining": {
-    "enabled": true,
     "blockTypes": [
       "dirt",
       "cobblestone",

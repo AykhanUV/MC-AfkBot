@@ -118,3 +118,6 @@ dist
 .pnp.*
 
 .idea
+
+# Bot runtime state
+runtime_state.json

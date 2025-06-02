@@ -1,9 +1,51 @@
 const mineflayer = require('mineflayer');
+const fs = require('fs');
+const path = require('path');
 const config = require('../settings.json');
 const { createBot } = require('./bot');
 const util = require('minecraft-server-util'); // Require the minecraft-server-util library
 
 let bot = null; // Store the bot instance
+const runtimeStatePath = path.join(__dirname, '..', 'runtime_state.json'); // Path to runtime_state.json at root
+
+// Function to load or initialize runtime state
+function loadRuntimeState() {
+    let state = {
+        isMiningEnabled: true // Default
+    };
+    try {
+        if (fs.existsSync(runtimeStatePath)) {
+            const rawData = fs.readFileSync(runtimeStatePath);
+            const loadedState = JSON.parse(rawData);
+            // Validate and merge, or just overwrite if simple
+            if (typeof loadedState.isMiningEnabled === 'boolean') {
+                state.isMiningEnabled = loadedState.isMiningEnabled;
+            }
+            console.log('[index.js] Loaded runtime state:', state);
+        } else {
+            console.log('[index.js] runtime_state.json not found, creating with default state.');
+            fs.writeFileSync(runtimeStatePath, JSON.stringify(state, null, 2));
+        }
+    } catch (error) {
+        console.error('[index.js] Error handling runtime_state.json:', error);
+        console.log('[index.js] Using default runtime state.');
+        // Attempt to write default state if error occurred during read/parse
+        try {
+            fs.writeFileSync(runtimeStatePath, JSON.stringify(state, null, 2));
+        } catch (writeError) {
+            console.error('[index.js] Failed to write default runtime_state.json:', writeError);
+        }
+    }
+    return state;
+}
+
+// Function to save runtime state
+// This will be called from commands.js, so we might need to expose it or handle it differently.
+// For now, commands.js will handle its own writes.
+// We could also make bot.saveRuntimeState = () => { ... }
+
+// Load initial state
+const initialRuntimeState = loadRuntimeState();
 
 /**
  * Checks the player status on the Minecraft server.
@@ -35,7 +77,16 @@ function startBot() {
     if (bot) return; // Prevent creating multiple bots
 
     console.log('[index.js] Starting bot...');
-    bot = createBot(config); // Create the bot instance
+    // Pass initialRuntimeState to createBot, or attach to bot object after creation
+    bot = createBot(config, initialRuntimeState); // Modify createBot to accept this
+    // OR, if createBot doesn't take it:
+    // bot = createBot(config);
+    // bot.isMiningEnabled = initialRuntimeState.isMiningEnabled; // Attach it here
+    // Let's choose attaching it after creation for less modification to createBot signature initially
+    // bot = createBot(config);
+    // bot.isMiningEnabled = initialRuntimeState.isMiningEnabled;
+    // Actually, it's better if createBot initializes this on the bot object.
+    // We'll modify createBot in bot.js to take initialRuntimeState.
 
     // Handle bot disconnection
     bot.once('end', () => {

@@ -1,4 +1,6 @@
 const { GoalFollow, GoalBlock } = require('mineflayer-pathfinder').goals;
+const fs = require('fs');
+const path = require('path');
 const { executeCommandMine } = require('./mining'); // Import the new function
 
 /**
@@ -91,7 +93,7 @@ function setupCommands(bot, _config) { // Mark config as unused
                     bot.chat(`I'm online and running!`);
                     break;
                 case 'help':
-                    bot.chat(`Available commands: !status, !help, !uptime, !inventory, !follow <player>, !stopFollow, !goto <x> <y> <z | player>, !dropitems, !mine <block_type>, !stopMine`);
+                    bot.chat(`Available commands: !status, !help, !uptime, !inventory, !follow <player>, !stopFollow, !goto <x> <y> <z | player>, !dropitems, !mine <block_type>, !stopMine, !toggleMining, !miningStatus, !ping`);
                     break;
                 case 'uptime':
                     const uptimeSeconds = process.uptime();
@@ -285,6 +287,33 @@ function setupCommands(bot, _config) { // Mark config as unused
                     } else {
                         bot.chat('Not currently mining with !mine command.');
                     }
+                    break;
+                case 'togglemining':
+                    bot.isMiningEnabled = !bot.isMiningEnabled;
+                    // Correct path to runtime_state.json, same as in index.js
+                    const runtimeStatePathCommands = path.join(__dirname, '..', 'runtime_state.json');
+                    try {
+                        fs.writeFileSync(runtimeStatePathCommands, JSON.stringify({ isMiningEnabled: bot.isMiningEnabled }, null, 2));
+                        bot.chat(`Automatic mining is now ${bot.isMiningEnabled ? 'ENABLED' : 'DISABLED'}.`);
+                        if (!bot.isMiningEnabled && bot.isMining) { // If disabling AND a mining cycle is active
+                            console.log('[Commands] !toggleMining: Disabling active mining cycle.');
+                            // We need to stop the current random mining cycle.
+                            // Setting bot.isMining = false should be caught by mineRandomBlockNearby's checks.
+                            // If it's in a pathfinding part of mineRandomBlockNearby, pathfinder.stop() is also needed.
+                            bot.isMining = false;
+                            bot.pathfinder.stop(); // Stop any pathfinding part of the mining cycle
+                            bot.emit('mining_stopped'); // Ensure other parts know mining stopped
+                        }
+                    } catch (error) {
+                        console.error('[Commands] Error writing runtime_state.json for !toggleMining:', error);
+                        bot.chat('Error saving mining state. Change may not persist.');
+                    }
+                    break;
+                case 'miningstatus':
+                    bot.chat(`Automatic mining is currently ${bot.isMiningEnabled ? 'ENABLED' : 'DISABLED'}.`);
+                    break;
+                case 'ping':
+                    bot.chat(`Bot ping: ${bot.player.ping} ms`);
                     break;
                 default:
                     bot.chat(`Unknown command: ${command}. Try !help for a list of commands.`);
