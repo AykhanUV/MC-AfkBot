@@ -116,7 +116,7 @@ function createBot(config, initialRuntimeState) {
                     // --> Let's revert to the original simple reconnect for this mode:
                     // setTimeout(() => createBot(config), delay); // This creates a *new* independent bot process on end
                     // --> Correction: The original logic called createBot, let's keep that for now.
-                     setTimeout(() => createBot(config), delay);
+                     setTimeout(() => createBot(config, { isMiningEnabled: bot.isMiningEnabled }), delay);
 
                 }, delay);
             } else {
