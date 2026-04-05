@@ -155,10 +155,28 @@ a:hover {
     animation: pulse 2s infinite;
 }
 
+.status-dot.connecting {
+    background-color: var(--warning);
+    box-shadow:
+        0 0 0 3px rgba(245, 158, 11, 0.15),
+        0 0 12px rgba(245, 158, 11, 0.15);
+    animation: pulse-warning 1s infinite;
+}
+
 @keyframes pulse {
     0%,
     100% {
         box-shadow: 0 0 0 0 var(--success-glow);
+    }
+    50% {
+        box-shadow: 0 0 0 6px transparent;
+    }
+}
+
+@keyframes pulse-warning {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.2);
     }
     50% {
         box-shadow: 0 0 0 6px transparent;
