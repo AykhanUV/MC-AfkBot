@@ -1,288 +1,449 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MC-AfkBot Control Panel</title>
-    <link rel="stylesheet" href="css/style.css" />
-</head>
-<body>
-<div id="app">
-    <nav class="navbar">
-        <div class="nav-brand">🎮 MC-AfkBot</div>
-        <div class="nav-tabs">
-            <button class="nav-tab active" data-tab="dashboard">Dashboard</button>
-            <button class="nav-tab" data-tab="settings">Settings</button>
-            <button class="nav-tab" data-tab="console">Console</button>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MC-AfkBot</title>
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>"
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link rel="stylesheet" href="css/style.css" />
+    </head>
+    <body>
+        <div id="app">
+            <nav class="navbar">
+                <div class="nav-brand">🎮 MC-AfkBot</div>
+                <div class="nav-tabs">
+                    <button class="nav-tab active" data-tab="dashboard">
+                        Dashboard
+                    </button>
+                    <button class="nav-tab" data-tab="settings">
+                        Settings
+                    </button>
+                    <button class="nav-tab" data-tab="console">Console</button>
+                </div>
+                <div class="nav-status">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Disconnected</span>
+                </div>
+            </nav>
+
+            <!-- DASHBOARD TAB -->
+            <div class="tab-content active" id="tab-dashboard">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">Server Info</div>
+                        <div class="card-body">
+                            <div class="info-row">
+                                <span class="label">Address</span
+                                ><span id="serverAddress">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Version</span
+                                ><span id="serverVersion">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Players</span
+                                ><span id="serverPlayers">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">MOTD</span
+                                ><span id="serverMotd">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Latency</span
+                                ><span id="serverLatency">-</span>
+                            </div>
+                            <div class="player-list" id="playerList"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Bot Status</div>
+                        <div class="card-body">
+                            <div class="info-row">
+                                <span class="label">Username</span
+                                ><span id="botUsername">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Game Mode</span
+                                ><span id="botGameMode">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Position</span
+                                ><span id="botPosition">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Ping</span
+                                ><span id="botPing">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Uptime</span
+                                ><span id="botUptime">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Experience</span
+                                ><span id="botExperience">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Health</span>
+                                <div class="bar-container">
+                                    <div
+                                        class="bar bar-health"
+                                        id="healthBar"
+                                        style="width: 0%"
+                                    ></div>
+                                    <span class="bar-text" id="healthText"
+                                        >-</span
+                                    >
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Food</span>
+                                <div class="bar-container">
+                                    <div
+                                        class="bar bar-food"
+                                        id="foodBar"
+                                        style="width: 0%"
+                                    ></div>
+                                    <span class="bar-text" id="foodText"
+                                        >-</span
+                                    >
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Mining</span>
+                                <span id="miningStatus">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">Controls</div>
+                    <div class="card-body controls-row">
+                        <button class="btn btn-success" id="btnConnect">
+                            Connect
+                        </button>
+                        <button
+                            class="btn btn-danger"
+                            id="btnDisconnect"
+                            disabled
+                        >
+                            Disconnect
+                        </button>
+                        <button
+                            class="btn btn-accent"
+                            id="btnToggleMining"
+                            disabled
+                        >
+                            Toggle Mining
+                        </button>
+                        <div class="chat-input-group">
+                            <input
+                                type="text"
+                                id="chatInput"
+                                placeholder="Send a message..."
+                                disabled
+                            />
+                            <button
+                                class="btn btn-accent"
+                                id="btnSendChat"
+                                disabled
+                            >
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">Inventory</div>
+                        <div class="card-body">
+                            <div class="inventory-grid" id="inventoryGrid">
+                                <div class="inventory-empty">No items</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Chat Log</div>
+                        <div class="card-body">
+                            <div class="log-container" id="chatLog">
+                                <div class="log-empty">No messages yet</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SETTINGS TAB -->
+            <div class="tab-content" id="tab-settings">
+                <form id="settingsForm">
+                    <div class="card">
+                        <div class="card-header">Bot Account</div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="cfg-username">Username</label>
+                                <input type="text" id="cfg-username" />
+                                <small
+                                    class="form-hint"
+                                    id="usernameHint"
+                                    style="display: none"
+                                    >Cannot change while connected</small
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-password">Password</label>
+                                <input type="password" id="cfg-password" />
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-authtype">Auth Type</label>
+                                <select id="cfg-authtype">
+                                    <option value="offline">Offline</option>
+                                    <option value="microsoft">Microsoft</option>
+                                    <option value="mojang">Mojang</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Server</div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="cfg-server-ip">IP Address</label>
+                                <input type="text" id="cfg-server-ip" />
+                                <small
+                                    class="form-hint"
+                                    id="serverIpHint"
+                                    style="display: none"
+                                    >Cannot change while connected</small
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-server-port">Port</label>
+                                <input type="number" id="cfg-server-port" />
+                                <small
+                                    class="form-hint"
+                                    id="serverPortHint"
+                                    style="display: none"
+                                    >Cannot change while connected</small
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-server-version">Version</label>
+                                <input type="text" id="cfg-server-version" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Auto Auth</div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="toggle-label">
+                                    <input
+                                        type="checkbox"
+                                        id="cfg-autoauth-enabled"
+                                    />
+                                    <span class="toggle-switch"></span>
+                                    Enabled
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-autoauth-password"
+                                    >Auth Password</label
+                                >
+                                <input
+                                    type="password"
+                                    id="cfg-autoauth-password"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Chat Messages</div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="toggle-label">
+                                    <input
+                                        type="checkbox"
+                                        id="cfg-chat-enabled"
+                                    />
+                                    <span class="toggle-switch"></span>
+                                    Enabled
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label class="toggle-label">
+                                    <input
+                                        type="checkbox"
+                                        id="cfg-chat-repeat"
+                                    />
+                                    <span class="toggle-switch"></span>
+                                    Repeat
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-chat-delay"
+                                    >Repeat Delay (seconds)</label
+                                >
+                                <input
+                                    type="number"
+                                    id="cfg-chat-delay"
+                                    min="1"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label>Messages</label>
+                                <div id="chatMessagesContainer"></div>
+                                <button
+                                    type="button"
+                                    class="btn btn-small btn-accent"
+                                    id="btnAddMessage"
+                                >
+                                    + Add Message
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Auto Reconnect</div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="toggle-label">
+                                    <input
+                                        type="checkbox"
+                                        id="cfg-autoreconnect"
+                                    />
+                                    <span class="toggle-switch"></span>
+                                    Enabled
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-autoreconnect-delay"
+                                    >Reconnect Delay (seconds)</label
+                                >
+                                <input
+                                    type="number"
+                                    id="cfg-autoreconnect-delay"
+                                    min="1"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Player Activity</div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label class="toggle-label">
+                                    <input
+                                        type="checkbox"
+                                        id="cfg-playeractivity-enabled"
+                                    />
+                                    <span class="toggle-switch"></span>
+                                    Enabled
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-playeractivity-interval"
+                                    >Check Interval (seconds)</label
+                                >
+                                <input
+                                    type="number"
+                                    id="cfg-playeractivity-interval"
+                                    min="5"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label class="toggle-label">
+                                    <input
+                                        type="checkbox"
+                                        id="cfg-playeractivity-leave"
+                                    />
+                                    <span class="toggle-switch"></span>
+                                    Leave When Player Joins
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Mining</div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="cfg-mining-blocks"
+                                    >Block Types (comma separated)</label
+                                >
+                                <input
+                                    type="text"
+                                    id="cfg-mining-blocks"
+                                    placeholder="dirt, cobblestone, coal_ore"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-mining-interval"
+                                    >Mining Interval (ms)</label
+                                >
+                                <input
+                                    type="number"
+                                    id="cfg-mining-interval"
+                                    min="1000"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-mining-distance"
+                                    >Max Distance</label
+                                >
+                                <input
+                                    type="number"
+                                    id="cfg-mining-distance"
+                                    min="1"
+                                    max="64"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-actions">
+                        <button type="submit" class="btn btn-success btn-large">
+                            Save Settings
+                        </button>
+                        <span class="save-status" id="saveStatus"></span>
+                    </div>
+                </form>
+            </div>
+
+            <!-- CONSOLE TAB -->
+            <div class="tab-content" id="tab-console">
+                <div class="card console-card">
+                    <div class="card-header">
+                        Console
+                        <button
+                            class="btn btn-small btn-danger"
+                            id="btnClearLogs"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="console-container" id="consoleLog"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="toast-container" id="toastContainer"></div>
         </div>
-        <div class="nav-status">
-            <span class="status-dot" id="statusDot"></span>
-            <span id="statusText">Disconnected</span>
-        </div>
-    </nav>
 
-    <!-- DASHBOARD TAB -->
-    <div class="tab-content active" id="tab-dashboard">
-        <div class="grid-2">
-            <!-- Server Info Card -->
-            <div class="card">
-                <div class="card-header">📡 Server Info</div>
-                <div class="card-body">
-                    <div class="info-row"><span class="label">Address</span><span id="serverAddress">-</span></div>
-                    <div class="info-row"><span class="label">Version</span><span id="serverVersion">-</span></div>
-                    <div class="info-row"><span class="label">Players</span><span id="serverPlayers">-</span></div>
-                    <div class="info-row"><span class="label">MOTD</span><span id="serverMotd">-</span></div>
-                    <div class="info-row"><span class="label">Latency</span><span id="serverLatency">-</span></div>
-                    <div class="player-list" id="playerList"></div>
-                </div>
-            </div>
-
-            <!-- Bot Status Card -->
-            <div class="card">
-                <div class="card-header">🤖 Bot Status</div>
-                <div class="card-body">
-                    <div class="info-row"><span class="label">Username</span><span id="botUsername">-</span></div>
-                    <div class="info-row"><span class="label">Game Mode</span><span id="botGameMode">-</span></div>
-                    <div class="info-row"><span class="label">Position</span><span id="botPosition">-</span></div>
-                    <div class="info-row"><span class="label">Ping</span><span id="botPing">-</span></div>
-                    <div class="info-row"><span class="label">Uptime</span><span id="botUptime">-</span></div>
-                    <div class="info-row"><span class="label">Experience</span><span id="botExperience">-</span></div>
-                    <div class="info-row">
-                        <span class="label">Health</span>
-                        <div class="bar-container"><div class="bar bar-health" id="healthBar" style="width:0%"></div><span class="bar-text" id="healthText">-</span></div>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Food</span>
-                        <div class="bar-container"><div class="bar bar-food" id="foodBar" style="width:0%"></div><span class="bar-text" id="foodText">-</span></div>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Mining</span>
-                        <span id="miningStatus">-</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Controls Card -->
-        <div class="card">
-            <div class="card-header">🎮 Controls</div>
-            <div class="card-body controls-row">
-                <button class="btn btn-success" id="btnConnect">Connect</button>
-                <button class="btn btn-danger" id="btnDisconnect" disabled>Disconnect</button>
-                <button class="btn btn-accent" id="btnToggleMining" disabled>Toggle Mining</button>
-                <div class="chat-input-group">
-                    <input type="text" id="chatInput" placeholder="Send chat message..." disabled />
-                    <button class="btn btn-accent" id="btnSendChat" disabled>Send</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <!-- Inventory Card -->
-            <div class="card">
-                <div class="card-header">🎒 Inventory</div>
-                <div class="card-body">
-                    <div class="inventory-grid" id="inventoryGrid">
-                        <div class="inventory-empty">No items</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Chat Log Card -->
-            <div class="card">
-                <div class="card-header">💬 Chat Log</div>
-                <div class="card-body">
-                    <div class="log-container" id="chatLog">
-                        <div class="log-empty">No messages yet</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SETTINGS TAB -->
-    <div class="tab-content" id="tab-settings">
-        <form id="settingsForm">
-            <!-- Bot Account -->
-            <div class="card">
-                <div class="card-header">👤 Bot Account</div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" id="cfg-username" />
-                        <small class="form-hint" id="usernameHint" style="display:none">⚠️ Cannot change while connected</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input type="password" id="cfg-password" />
-                    </div>
-                    <div class="form-group">
-                        <label>Auth Type</label>
-                        <select id="cfg-authtype">
-                            <option value="offline">Offline</option>
-                            <option value="microsoft">Microsoft</option>
-                            <option value="mojang">Mojang</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Server -->
-            <div class="card">
-                <div class="card-header">🌐 Server</div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label>IP Address</label>
-                        <input type="text" id="cfg-server-ip" />
-                        <small class="form-hint" id="serverIpHint" style="display:none">⚠️ Cannot change while connected</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Port</label>
-                        <input type="number" id="cfg-server-port" />
-                        <small class="form-hint" id="serverPortHint" style="display:none">⚠️ Cannot change while connected</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Version</label>
-                        <input type="text" id="cfg-server-version" />
-                    </div>
-                </div>
-            </div>
-
-            <!-- Auto Auth -->
-            <div class="card">
-                <div class="card-header">🔐 Auto Auth</div>
-                <div class="card-body">
-                    <div class="form-group form-row">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="cfg-autoauth-enabled" />
-                            <span class="toggle-switch"></span>
-                            Enabled
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label>Auth Password</label>
-                        <input type="password" id="cfg-autoauth-password" />
-                    </div>
-                </div>
-            </div>
-
-            <!-- Chat Messages -->
-            <div class="card">
-                <div class="card-header">💬 Chat Messages</div>
-                <div class="card-body">
-                    <div class="form-group form-row">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="cfg-chat-enabled" />
-                            <span class="toggle-switch"></span>
-                            Enabled
-                        </label>
-                    </div>
-                    <div class="form-group form-row">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="cfg-chat-repeat" />
-                            <span class="toggle-switch"></span>
-                            Repeat
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label>Repeat Delay (seconds)</label>
-                        <input type="number" id="cfg-chat-delay" min="1" />
-                    </div>
-                    <div class="form-group">
-                        <label>Messages</label>
-                        <div id="chatMessagesContainer"></div>
-                        <button type="button" class="btn btn-small btn-accent" id="btnAddMessage">+ Add Message</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Auto Reconnect -->
-            <div class="card">
-                <div class="card-header">🔄 Auto Reconnect</div>
-                <div class="card-body">
-                    <div class="form-group form-row">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="cfg-autoreconnect" />
-                            <span class="toggle-switch"></span>
-                            Enabled
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label>Reconnect Delay (seconds)</label>
-                        <input type="number" id="cfg-autoreconnect-delay" min="1" />
-                    </div>
-                </div>
-            </div>
-
-            <!-- Player Activity -->
-            <div class="card">
-                <div class="card-header">👥 Player Activity</div>
-                <div class="card-body">
-                    <div class="form-group form-row">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="cfg-playeractivity-enabled" />
-                            <span class="toggle-switch"></span>
-                            Enabled
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label>Check Interval (seconds)</label>
-                        <input type="number" id="cfg-playeractivity-interval" min="5" />
-                    </div>
-                    <div class="form-group form-row">
-                        <label class="toggle-label">
-                            <input type="checkbox" id="cfg-playeractivity-leave" />
-                            <span class="toggle-switch"></span>
-                            Leave When Player Joins
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Mining -->
-            <div class="card">
-                <div class="card-header">⛏️ Mining</div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label>Block Types (comma separated)</label>
-                        <input type="text" id="cfg-mining-blocks" placeholder="dirt, cobblestone, coal_ore" />
-                    </div>
-                    <div class="form-group">
-                        <label>Mining Interval (ms)</label>
-                        <input type="number" id="cfg-mining-interval" min="1000" />
-                    </div>
-                    <div class="form-group">
-                        <label>Max Distance</label>
-                        <input type="number" id="cfg-mining-distance" min="1" max="64" />
-                    </div>
-                </div>
-            </div>
-
-            <div class="settings-actions">
-                <button type="submit" class="btn btn-success btn-large">💾 Save Settings</button>
-                <span class="save-status" id="saveStatus"></span>
-            </div>
-        </form>
-    </div>
-
-    <!-- CONSOLE TAB -->
-    <div class="tab-content" id="tab-console">
-        <div class="card console-card">
-            <div class="card-header">
-                📋 Console Logs
-                <button class="btn btn-small btn-danger" id="btnClearLogs" style="float:right">Clear</button>
-            </div>
-            <div class="card-body">
-                <div class="console-container" id="consoleLog"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
-</div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="js/app.js"></script>
-</body>
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="js/app.js"></script>
+    </body>
 </html>
