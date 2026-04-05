@@ -18,10 +18,7 @@
       "enabled": true,
       "repeat": true,
       "repeat-delay": 20,
-      "messages": [
-        "I am an AFK bot!",
-        "Staying active..."
-      ]
+      "messages": ["I am an AFK bot!", "Staying active..."]
     },
     "auto-reconnect": true,
     "auto-reconnect-delay": 10,
@@ -47,6 +44,6 @@
     "maxDistance": 5
   },
   "webserver": {
-    "port": 8000
+    "port": 5050
   }
 }

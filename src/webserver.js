@@ -1,95 +1,232 @@
-const express = require('express');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
 
-/**
- * Sets up a basic web server to provide information about the bot.
- *
- * @param {mineflayer.Bot} bot - The mineflayer bot instance.
- * @param {object} config - The bot configuration, expected to contain a 'webserver' section with a 'port' option.
- */
-function setupWebserver(bot, config) {
-    // Check if webserver config exists and is enabled (assuming no explicit enable flag, just check existence)
-    if (!config.webserver || !config.webserver.port) {
-        console.log('[Webserver] Module disabled or port not configured in settings.json.');
-        return;
+function createWebServer(port, botManager, configManager) {
+  const app = express();
+  const server = http.createServer(app);
+  const io = new Server(server, {
+    cors: { origin: "*" },
+  });
+
+  // Middleware
+  app.use(express.json());
+  app.use(express.static(path.join(__dirname, "..", "public")));
+
+  // ========================
+  // REST API Routes
+  // ========================
+
+  app.get("/api/status", (req, res) => {
+    res.json(botManager.getStatus());
+  });
+
+  app.get("/api/config", (req, res) => {
+    res.json(configManager.get());
+  });
+
+  app.put("/api/config", (req, res) => {
+    const result = configManager.update(req.body);
+    if (result.success) {
+      io.emit("config:current", configManager.get());
     }
+    res.json(result);
+  });
 
-    // Create an Express application.
-    const app = express();
-    // Use the port specified in the config.
-    const port = config.webserver.port;
+  app.post("/api/connect", (req, res) => {
+    const result = botManager.connect();
+    res.json(result);
+  });
 
-    console.log(`[Webserver] Module enabled. Attempting to start web server on port ${port}...`);
+  app.post("/api/disconnect", (req, res) => {
+    const result = botManager.disconnect();
+    res.json(result);
+  });
 
-    // Middleware to enable JSON responses.
-    app.use(express.json());
+  app.get("/api/inventory", (req, res) => {
+    res.json(botManager.getInventory());
+  });
 
-    // Define a route for the root path ('/').
-    app.get('/', (req, res) => {
-        // Send a simple message indicating the bot is running.
-        res.send('Minecraft bot is running!');
-    });
+  app.post("/api/chat", (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: "Message required" });
+    const result = botManager.sendChat(message);
+    res.json(result);
+  });
 
-    // Define a route for the bot's status ('/status').
-    app.get('/status', (req, res) => {
-        try {
-            // Create a status object with relevant bot information.
-            // Add checks for potentially null/undefined properties if bot disconnects mid-request
-            const status = {
-                username: bot?.username || 'N/A',
-                health: bot?.health ?? 'N/A', // Use nullish coalescing
-                food: bot?.food ?? 'N/A',
-                position: bot?.entity?.position || null,
-                isMining: bot?.isMining ?? false, // Default to false if bot is undefined
-            };
-            // Send the status object as a JSON response.
-            res.json(status);
-        } catch (error) {
-            console.error('[Webserver] Error getting /status:', error);
-            res.status(500).json({ error: 'Internal server error retrieving bot status.' });
-        }
-    });
+  app.post("/api/toggle-mining", (req, res) => {
+    const result = botManager.toggleMining();
+    res.json(result);
+  });
 
-    // Define a route for the bot's inventory ('/inventory').
-    app.get('/inventory', (req, res) => {
-        try {
-            // Get the bot's inventory items. Check if bot and inventory exist.
-            const inventory = bot?.inventory?.items() || [];
-            // Transform the inventory items into a simpler format for the response.
-            const inventoryList = inventory.map(item => ({
-                name: item.name,
-                count: item.count,
-            }));
-            // Send the inventory list as a JSON response.
-            res.json(inventoryList);
-        } catch (error) {
-            console.error('[Webserver] Error getting /inventory:', error);
-            res.status(500).json({ error: 'Internal server error retrieving bot inventory.' });
-        }
-    });
+  app.get("/api/server-status", async (req, res) => {
+    const config = configManager.get();
+    const result = await botManager.pingServer(
+      config.server.ip,
+      config.server.port,
+    );
+    res.json(result);
+  });
 
-    // Start the web server and listen for incoming connections.
-    const server = app.listen(port, () => {
-        console.log(`[Webserver] Successfully listening at http://localhost:${port}`);
-    });
+  app.get("/api/logs", (req, res) => {
+    res.json(botManager.getLogs());
+  });
 
-    // Add basic error handling for the server itself
-    server.on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-            console.error(`[Webserver] Error: Port ${port} is already in use. Webserver not started.`);
-        } else {
-            console.error(`[Webserver] Failed to start server: ${err.message}`);
-        }
-        // Optionally, attempt cleanup or notify further up the chain if needed
-    });
+  app.get("/api/chat-log", (req, res) => {
+    res.json(botManager.getChatLog());
+  });
 
-    // Optional: Add cleanup if the bot disconnects to stop the server
-    bot.once('end', () => {
-        console.log('[Webserver] Bot disconnected, stopping web server...');
-        server.close(() => {
-            console.log('[Webserver] Web server stopped.');
+  // Fallback - serve index.html for SPA (Express 5 compatible)
+  app.use((req, res, next) => {
+    if (req.method === "GET" && req.accepts("html")) {
+      res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+    } else {
+      next();
+    }
+  });
+
+  // ========================
+  // Socket.IO
+  // ========================
+
+  io.on("connection", (socket) => {
+    console.log(`[WebServer] Client connected: ${socket.id}`);
+
+    // Send current state immediately
+    socket.emit("config:current", configManager.get());
+    socket.emit("bot:status", botManager.getStatus());
+    socket.emit("bot:inventory", botManager.getInventory());
+
+    // Ping server status on connect
+    const config = configManager.get();
+    botManager
+      .pingServer(config.server.ip, config.server.port)
+      .then((status) => {
+        socket.emit("server:status", status);
+      });
+
+    // Client events
+    socket.on("bot:connect", () => {
+      const result = botManager.connect();
+      if (!result.success) {
+        socket.emit("bot:log", {
+          level: "error",
+          message: result.error,
+          timestamp: new Date().toISOString(),
         });
+      }
     });
+
+    socket.on("bot:disconnect", () => {
+      botManager.disconnect();
+    });
+
+    socket.on("config:get", () => {
+      socket.emit("config:current", configManager.get());
+    });
+
+    socket.on("config:update", (data) => {
+      const result = configManager.update(data.config || data);
+      if (result.success) {
+        io.emit("config:current", configManager.get());
+      }
+      socket.emit("config:update:result", result);
+    });
+
+    socket.on("bot:send-chat", (data) => {
+      const result = botManager.sendChat(data.message);
+      if (!result.success) {
+        socket.emit("bot:log", {
+          level: "error",
+          message: `Failed to send chat: ${result.error}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    socket.on("bot:toggle-mining", () => {
+      const result = botManager.toggleMining();
+      if (result.success) {
+        io.emit("bot:status", botManager.getStatus());
+      }
+    });
+
+    socket.on("server:ping", async () => {
+      const config = configManager.get();
+      const status = await botManager.pingServer(
+        config.server.ip,
+        config.server.port,
+      );
+      socket.emit("server:status", status);
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`[WebServer] Client disconnected: ${socket.id}`);
+    });
+  });
+
+  // ========================
+  // Relay BotManager events to all Socket.IO clients
+  // ========================
+
+  botManager.on("status", (status) => {
+    io.emit("bot:status", status);
+  });
+
+  botManager.on("chat", (entry) => {
+    io.emit("bot:chat", entry);
+  });
+
+  botManager.on("inventory", (items) => {
+    io.emit("bot:inventory", items);
+  });
+
+  botManager.on("log", (entry) => {
+    io.emit("bot:log", entry);
+  });
+
+  botManager.on("connected", () => {
+    io.emit("bot:connected", {});
+    io.emit("bot:status", botManager.getStatus());
+  });
+
+  botManager.on("disconnected", (data) => {
+    io.emit("bot:disconnected", data);
+    io.emit("bot:status", botManager.getStatus());
+    io.emit("bot:inventory", []);
+  });
+
+  // Periodic server status ping (every 30s)
+  setInterval(async () => {
+    try {
+      const config = configManager.get();
+      const status = await botManager.pingServer(
+        config.server.ip,
+        config.server.port,
+      );
+      io.emit("server:status", status);
+    } catch (e) {
+      /* ignore */
+    }
+  }, 30000);
+
+  // Start server
+  server.listen(port, "0.0.0.0", () => {
+    console.log(
+      `[WebServer] Control panel running at http://localhost:${port}`,
+    );
+  });
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`[WebServer] Port ${port} is already in use!`);
+    } else {
+      console.error(`[WebServer] Server error: ${err.message}`);
+    }
+  });
+
+  return { app, server, io };
 }
 
-// Export the setup function for use in bot.js
-module.exports = { setupWebserver };
+module.exports = { createWebServer };

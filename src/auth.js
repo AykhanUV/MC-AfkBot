@@ -1,44 +1,59 @@
 function setupAuth(bot, config) {
-    const authConfig = config.utils['auto-auth'];
+  try {
+    const authConfig = config.utils["auto-auth"];
 
     if (!authConfig || !authConfig.enabled) {
-        console.log('[Auth] Module disabled in settings.json.');
-        return;
+      console.log("[Auth] Module disabled.");
+      return;
     }
 
     const password = authConfig.password;
-
     if (!password) {
-        console.warn('[Auth] Module enabled but no password provided in settings.json. Cannot authenticate.');
-        return;
+      console.warn("[Auth] Module enabled but no password provided. Skipping.");
+      return;
     }
 
-    console.log('[Auth] Module enabled.');
+    console.log("[Auth] Module enabled.");
 
-    // Listen for specific chat messages related to auth success/status
-    bot.on('chat', (_username, message) => { // Mark username as unused
-        const lowerMessage = message.toLowerCase(); // Case-insensitive check
-        if (lowerMessage.includes('successfully registered')) {
-            console.log('[Auth] Registration successful.');
-        } else if (lowerMessage.includes('already registered')) {
-            console.log('[Auth] Bot is already registered.');
-        } else if (lowerMessage.includes('successfully logged in')) {
-            console.log('[Auth] Login successful.');
+    bot.on("chat", (_username, message) => {
+      try {
+        const lowerMessage = message.toLowerCase();
+        if (lowerMessage.includes("successfully registered")) {
+          console.log("[Auth] Registration successful.");
+        } else if (lowerMessage.includes("already registered")) {
+          console.log("[Auth] Bot is already registered.");
+        } else if (lowerMessage.includes("successfully logged in")) {
+          console.log("[Auth] Login successful.");
         }
-        // Add more checks here if needed for other auth plugin messages
+      } catch (err) {
+        console.error("[Auth] Error processing chat for auth:", err.message);
+      }
     });
 
-    // Attempt registration and login once the bot spawns
-    bot.once('spawn', () => {
-        console.log('[Auth] Attempting registration and login...');
-        // Use setTimeout to slightly delay commands, giving server plugins time to load
+    bot.once("spawn", () => {
+      try {
+        console.log("[Auth] Attempting registration and login...");
         setTimeout(() => {
+          try {
             if (bot && bot.chat) bot.chat(`/register ${password} ${password}`);
-        }, 1000); // 1 second delay
+          } catch (e) {
+            console.error("[Auth] Error sending register:", e.message);
+          }
+        }, 1000);
         setTimeout(() => {
+          try {
             if (bot && bot.chat) bot.chat(`/login ${password}`);
-        }, 2000); // 2 second delay
+          } catch (e) {
+            console.error("[Auth] Error sending login:", e.message);
+          }
+        }, 2000);
+      } catch (err) {
+        console.error("[Auth] Error in spawn handler:", err.message);
+      }
     });
+  } catch (err) {
+    console.error("[Auth] Error setting up auth module:", err.message);
+  }
 }
 
 module.exports = { setupAuth };

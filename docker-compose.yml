@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  mc-afkbot:
+    build: .
+    container_name: mc-afkbot
+    ports:
+      - "5050:5050"
+    environment:
+      - PORT=5050
+    volumes:
+      - ./settings.json:/app/settings.json
+      - ./runtime_state.json:/app/runtime_state.json
+    restart: unless-stopped
