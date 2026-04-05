@@ -20,6 +20,7 @@ function createBot(config, initialRuntimeState) {
 
   bot.isMiningEnabled = initialRuntimeState?.isMiningEnabled ?? true;
   let antiAfkInterval = null;
+  let playerActivityReady = false; // Grace period flag — prevents existing players triggering quit on join
 
   console.log("[Bot] Bot instance created. Setting up event listeners...");
 
@@ -54,6 +55,14 @@ function createBot(config, initialRuntimeState) {
         }
       }, 30000);
 
+      // Grace period: wait 5s before activating player-activity quit logic.
+      // Without this, mineflayer fires 'playerJoined' for every player already
+      // on the server when the bot first connects, causing an instant quit loop.
+      setTimeout(() => {
+        playerActivityReady = true;
+        console.log("[Bot] Player activity grace period ended.");
+      }, 5000);
+
       console.log("[Bot] Modules setup complete.");
     } catch (err) {
       console.error("[Bot] Error during spawn setup:", err.message);
@@ -72,8 +81,14 @@ function createBot(config, initialRuntimeState) {
         config.utils["player-activity"]?.leaveWhenPlayerJoins === true;
 
       if (playerActivityEnabled && leaveWhenPlayerJoins) {
+        if (!playerActivityReady) {
+          console.log(
+            `[Bot] Player ${player.username} detected during grace period — ignoring.`,
+          );
+          return;
+        }
         console.log(
-          "[Bot] Player activity enabled and leaveWhenPlayerJoins is true. Quitting...",
+          `[Bot] Player ${player.username} joined — leaveWhenPlayerJoins is true. Quitting...`,
         );
         bot.quit();
       }
@@ -128,6 +143,7 @@ function createBot(config, initialRuntimeState) {
         antiAfkInterval = null;
       }
       // No auto-reconnect here - handled by BotManager
+      playerActivityReady = false; // Reset grace period for next connection
     } catch (err) {
       console.error("[Bot] Error in end handler:", err.message);
     }

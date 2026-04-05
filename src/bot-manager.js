@@ -32,6 +32,7 @@ class BotManager extends EventEmitter {
     this.statusInterval = null;
     this.reconnectTimeout = null;
     this.connectionTimeout = null;
+    this.playerActivityCheckTimeout = null;
     this.autoReconnectEnabled = true;
     this.startTime = null;
     this.maxLogs = 500;
@@ -64,7 +65,7 @@ class BotManager extends EventEmitter {
     // Emit connecting status immediately so the UI updates
     this.emit("status", this.getStatus());
 
-    // Kick off async connection (SRV resolution then bot creation)
+    // Kick off async connection (SRV resolution + player-activity check + bot creation)
     this._doConnect().catch((err) => {
       this.addLog("error", `Connection error: ${err.message}`, "System");
       this._cleanup();
@@ -98,6 +99,42 @@ class BotManager extends EventEmitter {
         }
       } catch (e) {
         // SRV lookup failed, continue with original host — direct connect
+      }
+    }
+
+    // If player-activity is enabled with leaveWhenPlayerJoins, check if the
+    // server has players BEFORE connecting. This avoids the join→see player→quit
+    // →reconnect→join→quit infinite loop.
+    const playerActivityEnabled =
+      config.utils["player-activity"]?.enabled === true;
+    const leaveWhenPlayerJoins =
+      config.utils["player-activity"]?.leaveWhenPlayerJoins === true;
+
+    if (playerActivityEnabled && leaveWhenPlayerJoins) {
+      this.addLog(
+        "info",
+        `Player-activity mode: checking if ${host}:${port} is empty...`,
+      );
+      try {
+        const status = await this.pingServer(host, port);
+        if (!status.error && status.online > 0) {
+          this.addLog(
+            "info",
+            `${status.online} player(s) online — waiting for empty server.`,
+            "System",
+          );
+          // Don't connect — schedule a poll check instead
+          this.connecting = false;
+          this.emit("status", this.getStatus());
+          this._schedulePlayerActivityCheck(config);
+          return;
+        }
+        // Server is empty or unreachable (try connecting anyway if ping failed)
+        if (!status.error) {
+          this.addLog("info", "Server is empty, connecting...", "System");
+        }
+      } catch (e) {
+        // Ping failed, try connecting anyway
       }
     }
 
@@ -155,6 +192,10 @@ class BotManager extends EventEmitter {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+    if (this.playerActivityCheckTimeout) {
+      clearTimeout(this.playerActivityCheckTimeout);
+      this.playerActivityCheckTimeout = null;
+    }
     if (this.bot) {
       this.addLog("info", "Disconnecting bot...");
       try {
@@ -177,6 +218,10 @@ class BotManager extends EventEmitter {
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout);
       this.connectionTimeout = null;
+    }
+    if (this.playerActivityCheckTimeout) {
+      clearTimeout(this.playerActivityCheckTimeout);
+      this.playerActivityCheckTimeout = null;
     }
     this.bot = null;
     this.connected = false;
@@ -313,7 +358,25 @@ class BotManager extends EventEmitter {
       this._lastError = null;
 
       // Auto-reconnect logic
-      if (this.autoReconnectEnabled && config.utils["auto-reconnect"]) {
+      const playerActivityEnabled =
+        config.utils["player-activity"]?.enabled === true;
+      const leaveWhenPlayerJoins =
+        config.utils["player-activity"]?.leaveWhenPlayerJoins === true;
+
+      if (
+        this.autoReconnectEnabled &&
+        playerActivityEnabled &&
+        leaveWhenPlayerJoins
+      ) {
+        // Player-activity mode: poll server until empty, then reconnect
+        this.addLog(
+          "info",
+          "Player-activity mode: will reconnect when server is empty.",
+          "System",
+        );
+        this._schedulePlayerActivityCheck(config);
+      } else if (this.autoReconnectEnabled && config.utils["auto-reconnect"]) {
+        // Standard auto-reconnect with fixed delay
         const delay = (config.utils["auto-reconnect-delay"] || 10) * 1000;
         this.addLog(
           "info",
@@ -348,6 +411,56 @@ class BotManager extends EventEmitter {
   /**
    * Translate raw Node/mineflayer errors into human-readable messages.
    */
+  /**
+   * Player-activity polling: periodically ping the server and only
+   * reconnect when no other players are online.
+   */
+  _schedulePlayerActivityCheck(config) {
+    const checkSeconds =
+      config.utils["player-activity"]?.checkIntervalSeconds || 30;
+    const checkMs = checkSeconds * 1000;
+
+    this.playerActivityCheckTimeout = setTimeout(async () => {
+      this.playerActivityCheckTimeout = null;
+      if (!this.autoReconnectEnabled) return;
+
+      try {
+        const ip = config.server.ip;
+        const port = config.server.port;
+        const status = await this.pingServer(ip, port);
+
+        if (status.error) {
+          // Can't reach server — try again later
+          this.addLog(
+            "warn",
+            `Cannot reach server: ${status.error}. Retrying in ${checkSeconds}s...`,
+            "System",
+          );
+          this._schedulePlayerActivityCheck(config);
+        } else if (status.online === 0) {
+          // Server is empty — reconnect
+          this.addLog("info", "Server is empty — reconnecting.", "System");
+          this.connect();
+        } else {
+          // Players online — wait
+          this.addLog(
+            "info",
+            `${status.online} player(s) online. Checking again in ${checkSeconds}s...`,
+            "System",
+          );
+          this._schedulePlayerActivityCheck(config);
+        }
+      } catch (err) {
+        this.addLog(
+          "error",
+          `Player-activity check failed: ${err.message}`,
+          "System",
+        );
+        this._schedulePlayerActivityCheck(config);
+      }
+    }, checkMs);
+  }
+
   _humanizeError(err) {
     const msg = err.message || String(err);
     const code = err.code || "";
