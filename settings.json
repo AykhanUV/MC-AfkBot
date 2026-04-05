@@ -17,8 +17,24 @@
     "chat-messages": {
       "enabled": true,
       "repeat": true,
-      "repeat-delay": 20,
-      "messages": ["I am an AFK bot!", "Staying active..."]
+      "repeat-delay": 45,
+      "messages": [
+        "anyone on?",
+        "brb getting water",
+        "this server is so chill",
+        "just vibing",
+        "lag check",
+        "back",
+        "hello?",
+        "man im bored lol",
+        "gg",
+        "nice",
+        "yo",
+        "anyone wanna play?",
+        "afk for a sec",
+        "kk back",
+        "whats everyone up to"
+      ]
     },
     "auto-reconnect": true,
     "auto-reconnect-delay": 10,
